@@ -7,6 +7,7 @@ from datetime import datetime
 import plotly.express as px
 import plotly.graph_objects as go
 import urllib.parse
+import textwrap # Added to fix HTML indentation rendering issues
 
 # ============================================================================
 # CONFIGURATION & CONSTANTS (QR_ BRAND)
@@ -48,7 +49,7 @@ def apply_custom_theme():
     """Injects premium QR_ Brand CSS with strict typographic scaling"""
     c = Config.COLORS
     
-    theme_css = f"""
+    theme_css = textwrap.dedent(f"""
         <style>
         /* Import Inter as a web-safe fallback for Segoe UI */
         @import url('https://fonts.googleapis.com/css2?family=Inter:wght@300;400;600;700&display=swap');
@@ -189,7 +190,7 @@ def apply_custom_theme():
             font-size: 1.05rem !important;
         }}
         </style>
-    """
+    """)
     st.markdown(theme_css, unsafe_allow_html=True)
 
 def show_logo():
@@ -500,19 +501,20 @@ def page_analytics():
 
     for idx, row in df_results.iterrows():
         color = Config.SEVERITY_COLORS.get(row['Severity'], Config.COLORS['text_muted'])
-        st.markdown(f"""
-        <div class="info-card" style="border-left: 6px solid {color}; padding: 1.5rem;">
-            <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 10px;">
-                <h4 style="margin:0; color: {color} !important;">{row['Issue Type']}</h4>
-                <span style="background-color: {color}; color: white; padding: 4px 12px; border-radius: 12px; font-size: 0.8rem; font-weight: bold;">{row['Severity']}</span>
+        card_html = textwrap.dedent(f"""
+            <div class="info-card" style="border-left: 6px solid {color}; padding: 1.5rem;">
+                <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 10px;">
+                    <h4 style="margin:0; color: {color} !important;">{row['Issue Type']}</h4>
+                    <span style="background-color: {color}; color: white; padding: 4px 12px; border-radius: 12px; font-size: 0.8rem; font-weight: bold;">{row['Severity']}</span>
+                </div>
+                <p style="margin-bottom: 5px; font-size: 1rem;"><strong>Part:</strong> {row['Part Number']} | <strong>Feature:</strong> {row['Feature Code']} | <strong>Engineer:</strong> {row['Engineer ID']}</p>
+                <p style="color: {Config.COLORS['text_muted']}; margin-bottom: 15px;"><em>{row['Message']}</em></p>
+                <div style="background-color: rgba(255,255,255,0.05); padding: 12px; border-radius: 8px; border: 1px solid rgba(255,255,255,0.1);">
+                    <strong style="color: {Config.COLORS['primary_red']};">💡 Recommended Fix:</strong><br>{row['Recommended Fix']}
+                </div>
             </div>
-            <p style="margin-bottom: 5px; font-size: 1rem;"><strong>Part:</strong> {row['Part Number']} | <strong>Feature:</strong> {row['Feature Code']} | <strong>Engineer:</strong> {row['Engineer ID']}</p>
-            <p style="color: {Config.COLORS['text_muted']}; margin-bottom: 15px;"><em>{row['Message']}</em></p>
-            <div style="background-color: rgba(255,255,255,0.05); padding: 12px; border-radius: 8px; border: 1px solid rgba(255,255,255,0.1);">
-                <strong style="color: {Config.COLORS['primary_red']};">💡 Recommended Fix:</strong><br>{row['Recommended Fix']}
-            </div>
-        </div>
-        """, unsafe_allow_html=True)
+        """)
+        st.markdown(card_html, unsafe_allow_html=True)
 
 def page_auto_emails():
     st.markdown('<div class="main-title"><h1>📧 D&R Auto-Communications</h1></div>', unsafe_allow_html=True)
@@ -521,12 +523,13 @@ def page_auto_emails():
         st.warning("⚠️ Please run validation first to generate engineer communications.")
         return
         
-    st.markdown("""
+    info_html = textwrap.dedent("""
         <div class="info-card">
             <p>Review the grouped BoM issues below. Click the draft button to open your default email client (e.g., Outlook).</p>
             <p><strong>⚠️ Note regarding Supervisors:</strong> Because the system cannot directly query your local Outlook Active Directory structure, the 'CC' line has been pre-populated with a placeholder. <strong>Please replace the placeholder with the Engineer's Supervisor before sending.</strong></p>
         </div>
-    """, unsafe_allow_html=True)
+    """)
+    st.markdown(info_html, unsafe_allow_html=True)
     
     results = st.session_state.validation_results
     
@@ -568,7 +571,7 @@ def page_auto_emails():
             df_display = pd.DataFrame([r.to_dict() for r in issues])[['Severity', 'Issue Type', 'Part Number', 'Feature Code']]
             st.dataframe(df_display, use_container_width=True, hide_index=True)
             
-            st.markdown(f'''
+            btn_html = textwrap.dedent(f'''
                 <a href="{mailto_link}" target="_blank" style="text-decoration: none;">
                     <button style="
                         background: linear-gradient(135deg, {Config.COLORS['primary_red']} 0%, {Config.COLORS['dark_red']} 100%);
@@ -577,7 +580,8 @@ def page_auto_emails():
                         box-shadow: 0 4px 6px rgba(0,0,0,0.3); font-family: 'Inter', sans-serif;
                     ">📨 Draft Email in Outlook</button>
                 </a>
-            ''', unsafe_allow_html=True)
+            ''')
+            st.markdown(btn_html, unsafe_allow_html=True)
 
 def page_nightletter():
     st.markdown('<div class="main-title"><h1>🌙 Executive Nightletter</h1></div>', unsafe_allow_html=True)
@@ -613,7 +617,7 @@ def page_nightletter():
     if not df_res.empty:
         feature_counts = df_res['Feature Code'].replace('MISSING', 'Unassigned').value_counts().head(3)
         for feat, count in feature_counts.items():
-            top_features_html += f"<li><strong>{feat}</strong>: {count} impacted parts</li>"
+            top_features_html += f"<li style='margin-bottom: 5px;'><strong style='color: {Config.COLORS['text_main']};'>{feat}</strong>: <span style='color: {Config.COLORS['text_muted']};'>{count} impacted parts</span></li>"
             top_features_plain += f"  • {feat}: {count} impacted parts\n"
     else:
         top_features_html = "<li>No issues detected today!</li>"
@@ -626,7 +630,7 @@ def page_nightletter():
         eng_counts = df_res[df_res['Engineer ID'] != 'Unassigned']['Engineer ID'].value_counts().head(3)
         if not eng_counts.empty:
             for eng, count in eng_counts.items():
-                top_engineers_html += f"<li><strong>{eng}</strong>: {count} actions pending</li>"
+                top_engineers_html += f"<li style='margin-bottom: 5px;'><strong style='color: {Config.COLORS['text_main']};'>{eng}</strong>: <span style='color: {Config.COLORS['text_muted']};'>{count} actions pending</span></li>"
                 top_engineers_plain += f"  • {eng}: {count} actions pending\n"
         else:
             top_engineers_html = "<li>All issues are currently unassigned.</li>"
@@ -639,61 +643,62 @@ def page_nightletter():
     date_str = datetime.now().strftime("%B %d, %Y")
     
     # --- 1. The HTML Visual Preview (For the App UI) ---
-    st.markdown(f"""
-    <div style="background-color: {Config.COLORS['sidebar_bg']}; border: 1px solid rgba(255,255,255,0.1); border-radius: 12px; padding: 2.5rem; margin-bottom: 2rem; box-shadow: 0 10px 30px rgba(0,0,0,0.3);">
-        <h2 style="color: {Config.COLORS['text_main']}; border-bottom: 2px solid {Config.COLORS['primary_red']}; padding-bottom: 10px; margin-top: 0;">
-            🌙 Executive Nightletter <span style="float: right; color: {Config.COLORS['text_muted']}; font-size: 1rem; font-weight: 400; margin-top: 10px;">{date_str}</span>
-        </h2>
-        
-        <div style="margin-bottom: 2rem;">
-            <p style="margin: 0;"><strong>File Analyzed:</strong> <span style="color: {Config.COLORS['blue_1']};">{bom_name}</span></p>
-            <p style="margin: 5px 0 0 0;"><strong>System Status:</strong> <span style="color: {status_color}; font-weight: 600;">{status_text}</span></p>
-        </div>
+    html_preview = textwrap.dedent(f"""
+        <div style="background-color: {Config.COLORS['sidebar_bg']}; border: 1px solid rgba(255,255,255,0.1); border-radius: 12px; padding: 2.5rem; margin-bottom: 2rem; box-shadow: 0 10px 30px rgba(0,0,0,0.3);">
+            <h2 style="color: {Config.COLORS['text_main']}; border-bottom: 2px solid {Config.COLORS['primary_red']}; padding-bottom: 10px; margin-top: 0;">
+                🌙 Executive Nightletter <span style="float: right; color: {Config.COLORS['text_muted']}; font-size: 1rem; font-weight: 400; margin-top: 10px;">{date_str}</span>
+            </h2>
+            
+            <div style="margin-bottom: 2rem;">
+                <p style="margin: 0;"><strong>File Analyzed:</strong> <span style="color: {Config.COLORS['blue_1']};">{bom_name}</span></p>
+                <p style="margin: 5px 0 0 0;"><strong>System Status:</strong> <span style="color: {status_color}; font-weight: 600;">{status_text}</span></p>
+            </div>
 
-        <div style="display: flex; gap: 20px; margin-bottom: 2rem;">
-            <div style="flex: 1; background-color: {Config.COLORS['card_bg']}; padding: 1.5rem; border-radius: 8px; border-top: 4px solid {status_color}; text-align: center;">
-                <h4 style="margin: 0; color: {Config.COLORS['text_muted']};">Risk Score</h4>
-                <h1 style="margin: 5px 0 0 0; color: {Config.COLORS['text_main']}; font-size: 2.5rem;">{risk_score}<span style="font-size: 1rem; color: {Config.COLORS['text_muted']};">/100</span></h1>
+            <div style="display: flex; gap: 20px; margin-bottom: 2rem;">
+                <div style="flex: 1; background-color: {Config.COLORS['card_bg']}; padding: 1.5rem; border-radius: 8px; border-top: 4px solid {status_color}; text-align: center;">
+                    <h4 style="margin: 0; color: {Config.COLORS['text_muted']};">Risk Score</h4>
+                    <h1 style="margin: 5px 0 0 0; color: {Config.COLORS['text_main']}; font-size: 2.5rem;">{risk_score}<span style="font-size: 1rem; color: {Config.COLORS['text_muted']};">/100</span></h1>
+                </div>
+                <div style="flex: 1; background-color: {Config.COLORS['card_bg']}; padding: 1.5rem; border-radius: 8px; border-top: 4px solid {Config.COLORS['blue_1']}; text-align: center;">
+                    <h4 style="margin: 0; color: {Config.COLORS['text_muted']};">Parts Evaluated</h4>
+                    <h1 style="margin: 5px 0 0 0; color: {Config.COLORS['text_main']}; font-size: 2.5rem;">{total_parts}</h1>
+                </div>
+                <div style="flex: 1; background-color: {Config.COLORS['card_bg']}; padding: 1.5rem; border-radius: 8px; border-top: 4px solid {Config.COLORS['primary_red']}; text-align: center;">
+                    <h4 style="margin: 0; color: {Config.COLORS['text_muted']};">Total Issues</h4>
+                    <h1 style="margin: 5px 0 0 0; color: {Config.COLORS['text_main']}; font-size: 2.5rem;">{total_issues}</h1>
+                </div>
             </div>
-            <div style="flex: 1; background-color: {Config.COLORS['card_bg']}; padding: 1.5rem; border-radius: 8px; border-top: 4px solid {Config.COLORS['blue_1']}; text-align: center;">
-                <h4 style="margin: 0; color: {Config.COLORS['text_muted']};">Parts Evaluated</h4>
-                <h1 style="margin: 5px 0 0 0; color: {Config.COLORS['text_main']}; font-size: 2.5rem;">{total_parts}</h1>
-            </div>
-            <div style="flex: 1; background-color: {Config.COLORS['card_bg']}; padding: 1.5rem; border-radius: 8px; border-top: 4px solid {Config.COLORS['primary_red']}; text-align: center;">
-                <h4 style="margin: 0; color: {Config.COLORS['text_muted']};">Total Issues</h4>
-                <h1 style="margin: 5px 0 0 0; color: {Config.COLORS['text_main']}; font-size: 2.5rem;">{total_issues}</h1>
-            </div>
-        </div>
 
-        <div style="display: flex; gap: 40px;">
-            <div style="flex: 1;">
-                <h4 style="color: {Config.COLORS['text_muted']}; border-bottom: 1px solid rgba(255,255,255,0.1); padding-bottom: 5px;">🚨 Issue Breakdown</h4>
-                <ul style="list-style-type: none; padding-left: 0;">
-                    <li style="margin-bottom: 5px;"><strong style="color: {Config.COLORS['primary_red']};">CRITICAL:</strong> {stats.get('critical', 0)}</li>
-                    <li style="margin-bottom: 5px;"><strong style="color: {Config.COLORS['orange']};">ERRORS:</strong> {stats.get('errors', 0)}</li>
-                    <li style="margin-bottom: 5px;"><strong style="color: {Config.COLORS['yellow']};">WARNINGS:</strong> {stats.get('warnings', 0)}</li>
-                </ul>
+            <div style="display: flex; gap: 40px;">
+                <div style="flex: 1;">
+                    <h4 style="color: {Config.COLORS['text_muted']}; border-bottom: 1px solid rgba(255,255,255,0.1); padding-bottom: 5px;">🚨 Issue Breakdown</h4>
+                    <ul style="list-style-type: none; padding-left: 0;">
+                        <li style="margin-bottom: 5px;"><strong style="color: {Config.COLORS['primary_red']};">CRITICAL:</strong> {stats.get('critical', 0)}</li>
+                        <li style="margin-bottom: 5px;"><strong style="color: {Config.COLORS['orange']};">ERRORS:</strong> {stats.get('errors', 0)}</li>
+                        <li style="margin-bottom: 5px;"><strong style="color: {Config.COLORS['yellow']};">WARNINGS:</strong> {stats.get('warnings', 0)}</li>
+                    </ul>
+                </div>
+                <div style="flex: 1.5;">
+                    <h4 style="color: {Config.COLORS['text_muted']}; border-bottom: 1px solid rgba(255,255,255,0.1); padding-bottom: 5px;">🎯 Top Problematic Features</h4>
+                    <ul style="padding-left: 20px;">
+                        {top_features_html}
+                    </ul>
+                </div>
+                <div style="flex: 1.5;">
+                    <h4 style="color: {Config.COLORS['text_muted']}; border-bottom: 1px solid rgba(255,255,255,0.1); padding-bottom: 5px;">👤 Engineer Workload</h4>
+                    <ul style="padding-left: 20px;">
+                        {top_engineers_html}
+                    </ul>
+                </div>
             </div>
-            <div style="flex: 1.5;">
-                <h4 style="color: {Config.COLORS['text_muted']}; border-bottom: 1px solid rgba(255,255,255,0.1); padding-bottom: 5px;">🎯 Top Problematic Features</h4>
-                <ul style="padding-left: 20px;">
-                    {top_features_html}
-                </ul>
-            </div>
-            <div style="flex: 1.5;">
-                <h4 style="color: {Config.COLORS['text_muted']}; border-bottom: 1px solid rgba(255,255,255,0.1); padding-bottom: 5px;">👤 Engineer Workload</h4>
-                <ul style="padding-left: 20px;">
-                    {top_engineers_html}
-                </ul>
-            </div>
+            
+            <p style="margin-top: 2rem; font-size: 0.85rem; color: {Config.COLORS['text_muted']}; border-top: 1px solid rgba(255,255,255,0.1); padding-top: 10px;">
+                Engineers have been notified via the automated queue system to correct their respective items. Please review the complete dashboard for granular analytics.<br>
+                <em>— Quick Release_ Validation System</em>
+            </p>
         </div>
-        
-        <p style="margin-top: 2rem; font-size: 0.85rem; color: {Config.COLORS['text_muted']}; border-top: 1px solid rgba(255,255,255,0.1); padding-top: 10px;">
-            Engineers have been notified via the automated queue system to correct their respective items. Please review the complete dashboard for granular analytics.<br>
-            <em>— Quick Release_ Validation System</em>
-        </p>
-    </div>
-    """, unsafe_allow_html=True)
+    """)
+    st.markdown(html_preview, unsafe_allow_html=True)
 
     # --- 2. The ASCII Plain Text Payload (For the Email Button) ---
     nightletter_subject = f"🌙 Daily BoM Validation Nightletter - {date_str}"
@@ -731,7 +736,7 @@ Generated by Quick Release_ Validation System
     
     col1, col2 = st.columns([1, 1])
     with col1:
-        st.markdown(f'''
+        btn_html = textwrap.dedent(f'''
             <a href="{mailto_link}" target="_blank" style="text-decoration: none;">
                 <button style="
                     background: linear-gradient(135deg, {Config.COLORS['green']} 0%, #3A6825 100%);
@@ -740,7 +745,8 @@ Generated by Quick Release_ Validation System
                     box-shadow: 0 4px 6px rgba(0,0,0,0.3); width: 100%; font-family: 'Inter', sans-serif;
                 ">🚀 Send Plain-Text Nightletter via Outlook</button>
             </a>
-        ''', unsafe_allow_html=True)
+        ''')
+        st.markdown(btn_html, unsafe_allow_html=True)
     with col2:
         st.markdown("<p style='color: #A6A8AA; font-size: 0.9rem; margin-top: 10px;'><em>Tip: The button above generates a perfectly formatted plain-text email. If you prefer the styled visual version, you can highlight, copy, and paste the preview box above directly into an HTML-supported email client.</em></p>", unsafe_allow_html=True)
 
@@ -748,11 +754,14 @@ def page_dashboard():
     st.markdown('<div class="main-title"><h1>🏠 Dashboard Home</h1></div>', unsafe_allow_html=True)
     col1, col2, col3 = st.columns(3)
     with col1:
-        st.markdown("""<div class="info-card"><h3>Step 1: Upload Data</h3><p>Upload your BoM and PDL files to begin the validation process.</p></div>""", unsafe_allow_html=True)
+        c1 = textwrap.dedent("""<div class="info-card"><h3>Step 1: Upload Data</h3><p>Upload your BoM and PDL files to begin the validation process.</p></div>""")
+        st.markdown(c1, unsafe_allow_html=True)
     with col2:
-        st.markdown("""<div class="info-card"><h3>Step 2: Analyze & Fix</h3><p>Review the Action Center for step-by-step recommended fixes based on PDL rules.</p></div>""", unsafe_allow_html=True)
+        c2 = textwrap.dedent("""<div class="info-card"><h3>Step 2: Analyze & Fix</h3><p>Review the Action Center for step-by-step recommended fixes based on PDL rules.</p></div>""")
+        st.markdown(c2, unsafe_allow_html=True)
     with col3:
-        st.markdown("""<div class="info-card"><h3>Step 3: Communicate</h3><p>Generate automated emails to D&R Engineers and nightly management summaries.</p></div>""", unsafe_allow_html=True)
+        c3 = textwrap.dedent("""<div class="info-card"><h3>Step 3: Communicate</h3><p>Generate automated emails to D&R Engineers and nightly management summaries.</p></div>""")
+        st.markdown(c3, unsafe_allow_html=True)
         
     if st.session_state.get('bom_df') is not None:
         st.markdown("### Current Workspace Status")
