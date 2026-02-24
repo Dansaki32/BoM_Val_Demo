@@ -112,9 +112,9 @@ def show_logo():
         try:
             st.sidebar.image(str(Config.LOGO_PATH), use_container_width=True)
         except Exception:
-            st.sidebar.markdown("<h2 style='text-align: center; color: #FF81AA;'>⎔ Feature Validator</h2>", unsafe_allow_html=True)
+            st.sidebar.markdown("<h2 style='text-align: center; color: #FF81AA;'>🔧 Feature Validator</h2>", unsafe_allow_html=True)
     else:
-        st.sidebar.markdown("<h2 style='text-align: center; color: #FF81AA;'>⎔ Feature Validator</h2>", unsafe_allow_html=True)
+        st.sidebar.markdown("<h2 style='text-align: center; color: #FF81AA;'>🔧 Feature Validator</h2>", unsafe_allow_html=True)
 
 # ============================================================================
 # DATA MODELS
@@ -161,7 +161,7 @@ def validate_against_pdl(bom_df: pd.DataFrame, pdl_df: Optional[pd.DataFrame]) -
         'critical': 0,
         'errors': 0,
         'warnings': 0,
-        'risk_score': 0 # Changed from health_score to risk_score
+        'risk_score': 0 
     }
     
     if bom_df.empty: return results, stats
@@ -226,7 +226,6 @@ def validate_against_pdl(bom_df: pd.DataFrame, pdl_df: Optional[pd.DataFrame]) -
                     stats['warnings'] += 1
             except: pass
 
-    # Calculate Risk Score (Lower is better. 0 = Perfect, 100 = Terrible)
     total_issues = stats['critical'] * 3 + stats['errors'] * 2 + stats['warnings']
     risk = min(total_issues * (100 / max(stats['total_features_checked'], 1)), 100)
     stats['risk_score'] = round(risk)
@@ -238,13 +237,12 @@ def validate_against_pdl(bom_df: pd.DataFrame, pdl_df: Optional[pd.DataFrame]) -
 # ============================================================================
 
 def create_gauge_chart(score):
-    # Flipped logic: Lower is better
     if score < 20:
-        color = Config.COLORS['success'] # Green for low risk
+        color = Config.COLORS['success'] 
     elif score < 50:
-        color = Config.COLORS['warning'] # Yellow for medium risk
+        color = Config.COLORS['warning'] 
     else:
-        color = Config.COLORS['primary'] # Red for high risk
+        color = Config.COLORS['primary'] 
         
     fig = go.Figure(go.Indicator(
         mode = "gauge+number",
@@ -257,19 +255,19 @@ def create_gauge_chart(score):
             'borderwidth': 2,
             'bordercolor': "gray",
             'steps': [
-                {'range': [0, 20], 'color': 'rgba(40, 167, 69, 0.3)'},   # Green zone
-                {'range': [20, 50], 'color': 'rgba(255, 193, 7, 0.3)'},  # Yellow zone
-                {'range': [50, 100], 'color': 'rgba(173, 18, 18, 0.3)'}], # Red zone
+                {'range': [0, 20], 'color': 'rgba(40, 167, 69, 0.3)'},   
+                {'range': [20, 50], 'color': 'rgba(255, 193, 7, 0.3)'},  
+                {'range': [50, 100], 'color': 'rgba(173, 18, 18, 0.3)'}], 
         }
     ))
     fig.update_layout(paper_bgcolor='rgba(0,0,0,0)', font={'color': Config.COLORS['text']}, height=350, margin=dict(l=20, r=20, t=50, b=20))
     return fig
 
 def display_action_center(results: List[ValidationResult]):
-    st.markdown("### ⛭ Action Center: Recommended Fixes")
+    st.markdown("### 🛠️ Action Center: Recommended Fixes")
     
     if not results:
-        st.markdown('<div class="success-card"><h3>✧ Zero Issues Detected</h3><p>Your BoM fully complies with the PDL guidance. No actions required.</p></div>', unsafe_allow_html=True)
+        st.markdown('<div class="success-card"><h3>🎉 Zero Issues Detected</h3><p>Your BoM fully complies with the PDL guidance. No actions required.</p></div>', unsafe_allow_html=True)
         return
 
     df_results = pd.DataFrame([r.to_dict() for r in results])
@@ -292,14 +290,14 @@ def display_action_center(results: List[ValidationResult]):
             <p style="margin-bottom: 5px;"><strong>Part:</strong> {row['Part Number']} | <strong>Feature:</strong> {row['Feature Code']}</p>
             <p style="color: {Config.COLORS['text_muted']}; margin-bottom: 15px;"><em>{row['Message']}</em></p>
             <div style="background-color: rgba(255,255,255,0.05); padding: 10px; border-radius: 6px; border: 1px solid {Config.COLORS['highlight']};">
-                <strong style="color: {Config.COLORS['highlight']};">⟡ Recommended Fix:</strong><br>
+                <strong style="color: {Config.COLORS['highlight']};">💡 Recommended Fix:</strong><br>
                 {row['Recommended Fix']}
             </div>
         </div>
         """, unsafe_allow_html=True)
 
 def page_upload_validate():
-    st.markdown('<div class="main-title"><h1>⇪ Upload Configuration Files</h1></div>', unsafe_allow_html=True)
+    st.markdown('<div class="main-title"><h1>📤 Upload Configuration Files</h1></div>', unsafe_allow_html=True)
     
     st.markdown('<div class="info-card">Upload your <strong>Bill of Materials (BoM)</strong> and the <strong>PDL Guidance File</strong> to perform advanced cross-reference validation.</div>', unsafe_allow_html=True)
     
@@ -311,7 +309,7 @@ def page_upload_validate():
         if bom_file:
             st.session_state.bom_df = load_uploaded_file(bom_file)
             st.session_state.bom_filename = bom_file.name
-            st.success(f"✔ Loaded BoM: {bom_file.name}")
+            st.success(f"✅ Loaded BoM: {bom_file.name}")
             
     with col2:
         st.markdown("### 2. PDL Guidance Master")
@@ -319,15 +317,15 @@ def page_upload_validate():
         if pdl_file:
             st.session_state.pdl_df = load_uploaded_file(pdl_file)
             st.session_state.pdl_filename = pdl_file.name
-            st.success(f"✔ Loaded PDL: {pdl_file.name}")
+            st.success(f"✅ Loaded PDL: {pdl_file.name}")
             
     if st.session_state.get('bom_df') is not None:
         st.markdown("---")
-        if st.button("⟲ Run Advanced PDL Validation", type="primary", use_container_width=True):
+        if st.button("🚀 Run Advanced PDL Validation", type="primary", use_container_width=True):
             if st.session_state.get('pdl_df') is None:
-                st.warning("◬ Running validation without PDL Guidance. Only basic BoM checks will be performed.")
+                st.warning("⚠️ Running validation without PDL Guidance. Only basic BoM checks will be performed.")
             
-            with st.spinner("⟲ Cross-referencing BoM against PDL rules..."):
+            with st.spinner("🔄 Cross-referencing BoM against PDL rules..."):
                 results, stats = validate_against_pdl(st.session_state.bom_df, st.session_state.get('pdl_df'))
                 st.session_state.validation_results = results
                 st.session_state.validation_stats = stats
@@ -335,13 +333,13 @@ def page_upload_validate():
                 st.rerun()
                 
     if st.session_state.get('run_complete'):
-        st.success("✔ Validation Complete! Navigate to Analytics to view insights and recommended fixes.")
+        st.success("✅ Validation Complete! Navigate to Analytics to view insights and recommended fixes.")
 
     st.markdown("---")
-    st.markdown("### ⧉ Or Try Sample Data")
+    st.markdown("### 🧪 Or Try Sample Data")
     st.markdown("Generate a large, realistic BoM (250 parts) intentionally seeded with an uneven distribution of PDL errors to demonstrate the Analytics engine.")
     
-    if st.button("↹ Generate Large Sample Workspace", use_container_width=True):
+    if st.button("🎲 Generate Large Sample Workspace", use_container_width=True):
         np.random.seed(42)
         
         num_parts = 250
@@ -404,10 +402,10 @@ def page_upload_validate():
         st.rerun()
 
 def page_analytics():
-    st.markdown('<div class="main-title"><h1>▤ Advanced Analytics & Insights</h1></div>', unsafe_allow_html=True)
+    st.markdown('<div class="main-title"><h1>📊 Advanced Analytics & Insights</h1></div>', unsafe_allow_html=True)
     
     if 'validation_results' not in st.session_state or 'validation_stats' not in st.session_state:
-        st.warning("◬ Please upload files and run validation first.")
+        st.warning("⚠️ Please upload files and run validation first.")
         return
         
     results = st.session_state.validation_results
@@ -487,7 +485,7 @@ def page_analytics():
     display_action_center(results)
 
 def page_dashboard():
-    st.markdown('<div class="main-title"><h1>⊞ Dashboard Home</h1></div>', unsafe_allow_html=True)
+    st.markdown('<div class="main-title"><h1>🏠 Dashboard Home</h1></div>', unsafe_allow_html=True)
     
     col1, col2 = st.columns(2)
     with col1:
@@ -507,13 +505,13 @@ def page_dashboard():
         
     if st.session_state.get('bom_df') is not None:
         st.markdown("### Current Workspace Status")
-        st.success(f"⎗ BoM Loaded: {st.session_state.get('bom_filename')}")
+        st.success(f"📄 BoM Loaded: {st.session_state.get('bom_filename')}")
         if st.session_state.get('pdl_df') is not None:
-            st.success(f"⎗ PDL Loaded: {st.session_state.get('pdl_filename')}")
+            st.success(f"📄 PDL Loaded: {st.session_state.get('pdl_filename')}")
         else:
-            st.warning("◬ PDL Guidance missing. Analytics will be limited.")
+            st.warning("⚠️ PDL Guidance missing. Analytics will be limited.")
             
-        if st.button("Go to Analytics ➔", type="primary"):
+        if st.button("Go to Analytics ➡️", type="primary"):
             st.info("Please use the Sidebar Navigation to switch to Analytics.")
 
 # ============================================================================
@@ -521,7 +519,7 @@ def page_dashboard():
 # ============================================================================
 
 def main():
-    st.set_page_config(page_title="Feature Code Validator | Ford OEM", page_icon="⎔", layout="wide", initial_sidebar_state="expanded")
+    st.set_page_config(page_title="Feature Code Validator | Ford OEM", page_icon="🔧", layout="wide", initial_sidebar_state="expanded")
     apply_custom_theme()
     
     if 'bom_df' not in st.session_state: st.session_state.bom_df = None
@@ -531,10 +529,10 @@ def main():
     st.sidebar.title("Feature Validator")
     st.sidebar.markdown("---")
     
-    page = st.sidebar.radio("⌖ Navigation", ["Dashboard", "Upload & Validate", "Analytics"], index=0)
+    page = st.sidebar.radio("📍 Navigation", ["Dashboard", "Upload & Validate", "Analytics"], index=0)
     st.sidebar.markdown("---")
     
-    if st.sidebar.button("⌫ Reset Workspace", use_container_width=True):
+    if st.sidebar.button("🗑️ Reset Workspace", use_container_width=True):
         for key in ['bom_df', 'pdl_df', 'bom_filename', 'pdl_filename', 'validation_results', 'validation_stats', 'run_complete']:
             if key in st.session_state: del st.session_state[key]
         st.rerun()
