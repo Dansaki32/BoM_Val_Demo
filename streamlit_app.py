@@ -8,21 +8,21 @@ import io
 from datetime import datetime
 import plotly.express as px
 import plotly.graph_objects as go
-import os
 
 # ============================================================================
 # CONFIGURATION & CONSTANTS
 # ============================================================================
 
-# Dynamically get the absolute path to the directory containing this script
+# Get the absolute path to the folder where this script is running
 BASE_DIR = Path(__file__).parent.absolute()
 
 class Config:
-    """Centralized configuration with robust absolute paths"""
-    FONT_REGULAR_PATH = BASE_DIR / "Styling" / "Styling" / "Dolce Vita (1).ttf"
-    FONT_BOLD_PATH = BASE_DIR / "Styling" / "Styling" / "Dolce Vita Heavy Bold (1).ttf"
-    FONT_LIGHT_PATH = BASE_DIR / "Styling" / "Styling" / "Dolce Vita Light (1).ttf"
-    LOGO_PATH = BASE_DIR / "Styling" / "Styling" / "logo.png"
+    """Centralized configuration with Root Directory Paths"""
+    # Updated to look in the SAME folder as the script (Root)
+    FONT_REGULAR_PATH = BASE_DIR / "Dolce Vita (1).ttf"
+    FONT_BOLD_PATH = BASE_DIR / "Dolce Vita Heavy Bold (1).ttf"
+    FONT_LIGHT_PATH = BASE_DIR / "Dolce Vita Light (1).ttf"
+    LOGO_PATH = BASE_DIR / "logo.png"
     
     # QuickRelease.co.uk inspired color scheme
     COLORS = {
@@ -54,26 +54,29 @@ class Config:
 def load_custom_font() -> str:
     """Load custom fonts and return CSS"""
     css = ""
+    # Load Regular
     if Config.FONT_REGULAR_PATH.exists():
         try:
             with open(Config.FONT_REGULAR_PATH, "rb") as f:
-                b64_font = base64.b64encode(f.read()).decode()
-            css += f"@font-face {{ font-family: 'DolceVita'; src: url(data:font/ttf;base64,{b64_font}) format('truetype'); font-weight: normal; font-style: normal; }}"
-        except Exception as e: print(f"Font load error: {e}")
-        
+                b64 = base64.b64encode(f.read()).decode()
+            css += f"@font-face {{ font-family: 'DolceVita'; src: url(data:font/ttf;base64,{b64}) format('truetype'); font-weight: normal; font-style: normal; }}"
+        except Exception: pass
+    
+    # Load Bold
     if Config.FONT_BOLD_PATH.exists():
         try:
             with open(Config.FONT_BOLD_PATH, "rb") as f:
-                b64_font_bold = base64.b64encode(f.read()).decode()
-            css += f"@font-face {{ font-family: 'DolceVita'; src: url(data:font/ttf;base64,{b64_font_bold}) format('truetype'); font-weight: bold; font-style: normal; }}"
-        except Exception as e: print(f"Font load error: {e}")
+                b64 = base64.b64encode(f.read()).decode()
+            css += f"@font-face {{ font-family: 'DolceVita'; src: url(data:font/ttf;base64,{b64}) format('truetype'); font-weight: bold; font-style: normal; }}"
+        except Exception: pass
         
+    # Load Light
     if Config.FONT_LIGHT_PATH.exists():
         try:
             with open(Config.FONT_LIGHT_PATH, "rb") as f:
-                b64_font_light = base64.b64encode(f.read()).decode()
-            css += f"@font-face {{ font-family: 'DolceVita'; src: url(data:font/ttf;base64,{b64_font_light}) format('truetype'); font-weight: 300; font-style: normal; }}"
-        except Exception as e: print(f"Font load error: {e}")
+                b64 = base64.b64encode(f.read()).decode()
+            css += f"@font-face {{ font-family: 'DolceVita'; src: url(data:font/ttf;base64,{b64}) format('truetype'); font-weight: 300; font-style: normal; }}"
+        except Exception: pass
         
     return css
 
@@ -132,13 +135,11 @@ def apply_custom_theme():
 def show_logo():
     if Config.LOGO_PATH.exists():
         try:
-            # Use string representation of absolute path
-            st.sidebar.image(str(Config.LOGO_PATH), use_container_width=True)
-        except Exception as e:
-            st.sidebar.error(f"Error loading logo: {e}")
+            st.sidebar.image(str(Config.LOGO_PATH), use_column_width=True)
+        except Exception:
+            st.sidebar.markdown("<h2 style='text-align: center; color: #FF81AA;'>🔧 Feature Validator</h2>", unsafe_allow_html=True)
     else:
-        # Debug warning to help you locate it if it's still missing
-        st.sidebar.warning(f"Logo missing. Looked in:\n{Config.LOGO_PATH}")
+        # Fallback text if logo still not found, but won't crash
         st.sidebar.markdown("<h2 style='text-align: center; color: #FF81AA;'>🔧 Feature Validator</h2>", unsafe_allow_html=True)
 
 # ============================================================================
@@ -370,7 +371,7 @@ def page_analytics():
     results = st.session_state.validation_results
     stats = st.session_state.validation_stats
     
-    # SAFE GETTERS to prevent KeyErrors from old sessions
+    # SAFE GETTERS to prevent KeyErrors
     health_score = stats.get('health_score', 100)
     critical_count = stats.get('critical', 0)
     error_count = stats.get('errors', 0)
