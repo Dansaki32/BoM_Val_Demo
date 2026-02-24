@@ -112,9 +112,9 @@ def show_logo():
         try:
             st.sidebar.image(str(Config.LOGO_PATH), use_container_width=True)
         except Exception:
-            st.sidebar.markdown("<h2 style='text-align: center; color: #FF81AA;'>🔧 Feature Validator</h2>", unsafe_allow_html=True)
+            st.sidebar.markdown("<h2 style='text-align: center; color: #FF81AA;'>⎔ Feature Validator</h2>", unsafe_allow_html=True)
     else:
-        st.sidebar.markdown("<h2 style='text-align: center; color: #FF81AA;'>🔧 Feature Validator</h2>", unsafe_allow_html=True)
+        st.sidebar.markdown("<h2 style='text-align: center; color: #FF81AA;'>⎔ Feature Validator</h2>", unsafe_allow_html=True)
 
 # ============================================================================
 # DATA MODELS
@@ -161,7 +161,7 @@ def validate_against_pdl(bom_df: pd.DataFrame, pdl_df: Optional[pd.DataFrame]) -
         'critical': 0,
         'errors': 0,
         'warnings': 0,
-        'health_score': 100
+        'risk_score': 0 # Changed from health_score to risk_score
     }
     
     if bom_df.empty: return results, stats
@@ -226,9 +226,10 @@ def validate_against_pdl(bom_df: pd.DataFrame, pdl_df: Optional[pd.DataFrame]) -
                     stats['warnings'] += 1
             except: pass
 
+    # Calculate Risk Score (Lower is better. 0 = Perfect, 100 = Terrible)
     total_issues = stats['critical'] * 3 + stats['errors'] * 2 + stats['warnings']
-    penalty = min(total_issues * (100 / max(stats['total_features_checked'], 1)), 100)
-    stats['health_score'] = max(0, round(100 - penalty))
+    risk = min(total_issues * (100 / max(stats['total_features_checked'], 1)), 100)
+    stats['risk_score'] = round(risk)
     
     return results, stats
 
@@ -237,32 +238,38 @@ def validate_against_pdl(bom_df: pd.DataFrame, pdl_df: Optional[pd.DataFrame]) -
 # ============================================================================
 
 def create_gauge_chart(score):
-    color = Config.COLORS['success'] if score >= 80 else (Config.COLORS['warning'] if score >= 50 else Config.COLORS['primary'])
-    
+    # Flipped logic: Lower is better
+    if score < 20:
+        color = Config.COLORS['success'] # Green for low risk
+    elif score < 50:
+        color = Config.COLORS['warning'] # Yellow for medium risk
+    else:
+        color = Config.COLORS['primary'] # Red for high risk
+        
     fig = go.Figure(go.Indicator(
         mode = "gauge+number",
         value = score,
-        title = {'text': "Buildability Health Score", 'font': {'color': Config.COLORS['text'], 'size': 24}},
+        title = {'text': "Buildability Risk Score", 'font': {'color': Config.COLORS['text'], 'size': 24}},
         gauge = {
-            'axis': {'range': [None, 100], 'tickwidth': 1, 'tickcolor': "white"},
+            'axis': {'range': [0, 100], 'tickwidth': 1, 'tickcolor': "white"},
             'bar': {'color': color},
             'bgcolor': Config.COLORS['card_bg'],
             'borderwidth': 2,
             'bordercolor': "gray",
             'steps': [
-                {'range': [0, 50], 'color': 'rgba(173, 18, 18, 0.3)'},
-                {'range': [50, 80], 'color': 'rgba(255, 193, 7, 0.3)'},
-                {'range': [80, 100], 'color': 'rgba(40, 167, 69, 0.3)'}],
+                {'range': [0, 20], 'color': 'rgba(40, 167, 69, 0.3)'},   # Green zone
+                {'range': [20, 50], 'color': 'rgba(255, 193, 7, 0.3)'},  # Yellow zone
+                {'range': [50, 100], 'color': 'rgba(173, 18, 18, 0.3)'}], # Red zone
         }
     ))
     fig.update_layout(paper_bgcolor='rgba(0,0,0,0)', font={'color': Config.COLORS['text']}, height=350, margin=dict(l=20, r=20, t=50, b=20))
     return fig
 
 def display_action_center(results: List[ValidationResult]):
-    st.markdown("### 🛠️ Action Center: Recommended Fixes")
+    st.markdown("### ⛭ Action Center: Recommended Fixes")
     
     if not results:
-        st.markdown('<div class="success-card"><h3>🎉 Zero Issues Detected</h3><p>Your BoM fully complies with the PDL guidance. No actions required.</p></div>', unsafe_allow_html=True)
+        st.markdown('<div class="success-card"><h3>✧ Zero Issues Detected</h3><p>Your BoM fully complies with the PDL guidance. No actions required.</p></div>', unsafe_allow_html=True)
         return
 
     df_results = pd.DataFrame([r.to_dict() for r in results])
@@ -285,14 +292,14 @@ def display_action_center(results: List[ValidationResult]):
             <p style="margin-bottom: 5px;"><strong>Part:</strong> {row['Part Number']} | <strong>Feature:</strong> {row['Feature Code']}</p>
             <p style="color: {Config.COLORS['text_muted']}; margin-bottom: 15px;"><em>{row['Message']}</em></p>
             <div style="background-color: rgba(255,255,255,0.05); padding: 10px; border-radius: 6px; border: 1px solid {Config.COLORS['highlight']};">
-                <strong style="color: {Config.COLORS['highlight']};">💡 Recommended Fix:</strong><br>
+                <strong style="color: {Config.COLORS['highlight']};">⟡ Recommended Fix:</strong><br>
                 {row['Recommended Fix']}
             </div>
         </div>
         """, unsafe_allow_html=True)
 
 def page_upload_validate():
-    st.markdown('<div class="main-title"><h1>📤 Upload Configuration Files</h1></div>', unsafe_allow_html=True)
+    st.markdown('<div class="main-title"><h1>⇪ Upload Configuration Files</h1></div>', unsafe_allow_html=True)
     
     st.markdown('<div class="info-card">Upload your <strong>Bill of Materials (BoM)</strong> and the <strong>PDL Guidance File</strong> to perform advanced cross-reference validation.</div>', unsafe_allow_html=True)
     
@@ -304,7 +311,7 @@ def page_upload_validate():
         if bom_file:
             st.session_state.bom_df = load_uploaded_file(bom_file)
             st.session_state.bom_filename = bom_file.name
-            st.success(f"✅ Loaded BoM: {bom_file.name}")
+            st.success(f"✔ Loaded BoM: {bom_file.name}")
             
     with col2:
         st.markdown("### 2. PDL Guidance Master")
@@ -312,15 +319,15 @@ def page_upload_validate():
         if pdl_file:
             st.session_state.pdl_df = load_uploaded_file(pdl_file)
             st.session_state.pdl_filename = pdl_file.name
-            st.success(f"✅ Loaded PDL: {pdl_file.name}")
+            st.success(f"✔ Loaded PDL: {pdl_file.name}")
             
     if st.session_state.get('bom_df') is not None:
         st.markdown("---")
-        if st.button("🚀 Run Advanced PDL Validation", type="primary", use_container_width=True):
+        if st.button("⟲ Run Advanced PDL Validation", type="primary", use_container_width=True):
             if st.session_state.get('pdl_df') is None:
-                st.warning("⚠️ Running validation without PDL Guidance. Only basic BoM checks will be performed.")
+                st.warning("◬ Running validation without PDL Guidance. Only basic BoM checks will be performed.")
             
-            with st.spinner("🔄 Cross-referencing BoM against PDL rules..."):
+            with st.spinner("⟲ Cross-referencing BoM against PDL rules..."):
                 results, stats = validate_against_pdl(st.session_state.bom_df, st.session_state.get('pdl_df'))
                 st.session_state.validation_results = results
                 st.session_state.validation_stats = stats
@@ -328,15 +335,14 @@ def page_upload_validate():
                 st.rerun()
                 
     if st.session_state.get('run_complete'):
-        st.success("Validation Complete! Navigate to Analytics to view insights and recommended fixes.")
+        st.success("✔ Validation Complete! Navigate to Analytics to view insights and recommended fixes.")
 
-    # --- MASSIVELY UPGRADED SAMPLE DATA GENERATOR ---
     st.markdown("---")
-    st.markdown("### 🧪 Or Try Sample Data")
+    st.markdown("### ⧉ Or Try Sample Data")
     st.markdown("Generate a large, realistic BoM (250 parts) intentionally seeded with an uneven distribution of PDL errors to demonstrate the Analytics engine.")
     
-    if st.button("🎲 Generate Large Sample Workspace", use_container_width=True):
-        np.random.seed(42) # Ensure reproducible but random-looking results
+    if st.button("↹ Generate Large Sample Workspace", use_container_width=True):
+        np.random.seed(42)
         
         num_parts = 250
         part_numbers = [f"PN-F{10000 + i}" for i in range(num_parts)]
@@ -347,37 +353,30 @@ def page_upload_validate():
         quantities = []
         descriptions = []
         
-        # Generate 250 parts with an uneven, realistic error distribution
         for i in range(num_parts):
             rand_val = np.random.random()
             
             if rand_val < 0.75:
-                # 75% Valid Parts
                 feature_codes.append(np.random.choice(valid_features))
                 quantities.append(np.random.randint(1, 4))
                 descriptions.append("Standard Production Component")
             elif rand_val < 0.85:
-                # 10% Missing Data (Error) - Very Common
                 feature_codes.append(None)
                 quantities.append(1)
                 descriptions.append("Unassigned Bracket")
             elif rand_val < 0.93:
-                # 8% Obsolete (Critical) - Common
                 feature_codes.append('OBS-NAV-01')
                 quantities.append(1)
                 descriptions.append("Legacy Navigation Module")
             elif rand_val < 0.97:
-                # 4% Quantity Warning - Less Common
                 feature_codes.append('WHEEL-18')
                 quantities.append(np.random.randint(5, 12)) 
                 descriptions.append("Alloy Wheel")
             elif rand_val < 0.99:
-                # 2% Mutually Exclusive (Critical) - Rare
                 feature_codes.append(np.random.choice(['INT-LHD', 'INT-RHD']))
                 quantities.append(1)
                 descriptions.append("Directional Interior Trim")
             else:
-                # 1% Missing Dependency (Error) - Very Rare
                 feature_codes.append('SUNROOF-PAN')
                 quantities.append(1)
                 descriptions.append("Panoramic Sunroof Glass")
@@ -405,25 +404,24 @@ def page_upload_validate():
         st.rerun()
 
 def page_analytics():
-    st.markdown('<div class="main-title"><h1>📊 Advanced Analytics & Insights</h1></div>', unsafe_allow_html=True)
+    st.markdown('<div class="main-title"><h1>▤ Advanced Analytics & Insights</h1></div>', unsafe_allow_html=True)
     
     if 'validation_results' not in st.session_state or 'validation_stats' not in st.session_state:
-        st.warning("⚠️ Please upload files and run validation first.")
+        st.warning("◬ Please upload files and run validation first.")
         return
         
     results = st.session_state.validation_results
     stats = st.session_state.validation_stats
     
-    health_score = stats.get('health_score', 100)
+    risk_score = stats.get('risk_score', 0)
     critical_count = stats.get('critical', 0)
     error_count = stats.get('errors', 0)
     warning_count = stats.get('warnings', 0)
     
-    # --- SECTION 1: Executive Summary ---
     col1, col2, col3, col4 = st.columns([1.5, 1, 1, 1])
     
     with col1:
-        st.plotly_chart(create_gauge_chart(health_score), use_container_width=True)
+        st.plotly_chart(create_gauge_chart(risk_score), use_container_width=True)
         
     with col2:
         st.markdown('<div class="metric-container" style="height: 100%; display:flex; flex-direction:column; justify-content:center;">', unsafe_allow_html=True)
@@ -442,7 +440,6 @@ def page_analytics():
 
     st.markdown("---")
     
-    # --- SECTION 2: Interactive Insights ---
     if results:
         df_res = pd.DataFrame([r.to_dict() for r in results])
         
@@ -450,7 +447,6 @@ def page_analytics():
         
         with col_chart1:
             st.markdown("### Issue Distribution")
-            # Upgraded to Sunburst chart for better hierarchical view with text labels
             fig_tree = px.sunburst(
                 df_res, 
                 path=['Severity', 'Issue Type'], 
@@ -458,14 +454,12 @@ def page_analytics():
                 color_discrete_map=Config.SEVERITY_COLORS,
                 template="plotly_dark"
             )
-            fig_tree.update_traces(textinfo="label+value") # Shows the actual numbers
+            fig_tree.update_traces(textinfo="label+value") 
             fig_tree.update_layout(paper_bgcolor='rgba(0,0,0,0)', plot_bgcolor='rgba(0,0,0,0)', margin=dict(t=10, l=0, r=0, b=10))
             st.plotly_chart(fig_tree, use_container_width=True)
             
         with col_chart2:
             st.markdown("### Most Problematic Features")
-            # Changed aggregation from Part Number to Feature Code
-            # This shows which features are causing the most widespread issues across the BoM
             feature_counts = df_res['Feature Code'].replace('MISSING', 'Unassigned').value_counts().head(7).reset_index()
             feature_counts.columns = ['Feature Code', 'Issue Count']
             
@@ -474,10 +468,9 @@ def page_analytics():
                 x='Issue Count', 
                 y='Feature Code', 
                 orientation='h',
-                text='Issue Count', # Adds the number to the end of the bar
+                text='Issue Count', 
                 template="plotly_dark"
             )
-            # Removed the confusing color scale, just using the brand primary color
             fig_bar.update_traces(marker_color=Config.COLORS['primary'], textposition='outside')
             fig_bar.update_layout(
                 paper_bgcolor='rgba(0,0,0,0)', 
@@ -491,11 +484,10 @@ def page_analytics():
             
     st.markdown("---")
     
-    # --- SECTION 3: Action Center ---
     display_action_center(results)
 
 def page_dashboard():
-    st.markdown('<div class="main-title"><h1>🏠 Dashboard Home</h1></div>', unsafe_allow_html=True)
+    st.markdown('<div class="main-title"><h1>⊞ Dashboard Home</h1></div>', unsafe_allow_html=True)
     
     col1, col2 = st.columns(2)
     with col1:
@@ -515,13 +507,13 @@ def page_dashboard():
         
     if st.session_state.get('bom_df') is not None:
         st.markdown("### Current Workspace Status")
-        st.success(f"📄 BoM Loaded: {st.session_state.get('bom_filename')}")
+        st.success(f"⎗ BoM Loaded: {st.session_state.get('bom_filename')}")
         if st.session_state.get('pdl_df') is not None:
-            st.success(f"📄 PDL Loaded: {st.session_state.get('pdl_filename')}")
+            st.success(f"⎗ PDL Loaded: {st.session_state.get('pdl_filename')}")
         else:
-            st.warning("⚠️ PDL Guidance missing. Analytics will be limited.")
+            st.warning("◬ PDL Guidance missing. Analytics will be limited.")
             
-        if st.button("Go to Analytics ➡️", type="primary"):
+        if st.button("Go to Analytics ➔", type="primary"):
             st.info("Please use the Sidebar Navigation to switch to Analytics.")
 
 # ============================================================================
@@ -529,7 +521,7 @@ def page_dashboard():
 # ============================================================================
 
 def main():
-    st.set_page_config(page_title="Feature Code Validator | Ford OEM", page_icon="🔧", layout="wide", initial_sidebar_state="expanded")
+    st.set_page_config(page_title="Feature Code Validator | Ford OEM", page_icon="⎔", layout="wide", initial_sidebar_state="expanded")
     apply_custom_theme()
     
     if 'bom_df' not in st.session_state: st.session_state.bom_df = None
@@ -539,10 +531,10 @@ def main():
     st.sidebar.title("Feature Validator")
     st.sidebar.markdown("---")
     
-    page = st.sidebar.radio("📍 Navigation", ["Dashboard", "Upload & Validate", "Analytics"], index=0)
+    page = st.sidebar.radio("⌖ Navigation", ["Dashboard", "Upload & Validate", "Analytics"], index=0)
     st.sidebar.markdown("---")
     
-    if st.sidebar.button("🗑️ Reset Workspace", use_container_width=True):
+    if st.sidebar.button("⌫ Reset Workspace", use_container_width=True):
         for key in ['bom_df', 'pdl_df', 'bom_filename', 'pdl_filename', 'validation_results', 'validation_stats', 'run_complete']:
             if key in st.session_state: del st.session_state[key]
         st.rerun()
