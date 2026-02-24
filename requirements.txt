@@ -5,5 +5,3 @@ plotly
 pypdf
 google-cloud-storage
 google-auth
-base64
-pathlib
