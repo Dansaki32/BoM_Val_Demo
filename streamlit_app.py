@@ -18,7 +18,6 @@ BASE_DIR = Path(__file__).parent.absolute()
 
 class Config:
     """Centralized configuration with Root Directory Paths"""
-    # Updated to look in the SAME folder as the script (Root)
     FONT_REGULAR_PATH = BASE_DIR / "Dolce Vita (1).ttf"
     FONT_BOLD_PATH = BASE_DIR / "Dolce Vita Heavy Bold (1).ttf"
     FONT_LIGHT_PATH = BASE_DIR / "Dolce Vita Light (1).ttf"
@@ -54,7 +53,6 @@ class Config:
 def load_custom_font() -> str:
     """Load custom fonts and return CSS"""
     css = ""
-    # Load Regular
     if Config.FONT_REGULAR_PATH.exists():
         try:
             with open(Config.FONT_REGULAR_PATH, "rb") as f:
@@ -62,7 +60,6 @@ def load_custom_font() -> str:
             css += f"@font-face {{ font-family: 'DolceVita'; src: url(data:font/ttf;base64,{b64}) format('truetype'); font-weight: normal; font-style: normal; }}"
         except Exception: pass
     
-    # Load Bold
     if Config.FONT_BOLD_PATH.exists():
         try:
             with open(Config.FONT_BOLD_PATH, "rb") as f:
@@ -70,7 +67,6 @@ def load_custom_font() -> str:
             css += f"@font-face {{ font-family: 'DolceVita'; src: url(data:font/ttf;base64,{b64}) format('truetype'); font-weight: bold; font-style: normal; }}"
         except Exception: pass
         
-    # Load Light
     if Config.FONT_LIGHT_PATH.exists():
         try:
             with open(Config.FONT_LIGHT_PATH, "rb") as f:
@@ -135,11 +131,10 @@ def apply_custom_theme():
 def show_logo():
     if Config.LOGO_PATH.exists():
         try:
-            st.sidebar.image(str(Config.LOGO_PATH), use_column_width=True)
+            st.sidebar.image(str(Config.LOGO_PATH), use_container_width=True)
         except Exception:
             st.sidebar.markdown("<h2 style='text-align: center; color: #FF81AA;'>🔧 Feature Validator</h2>", unsafe_allow_html=True)
     else:
-        # Fallback text if logo still not found, but won't crash
         st.sidebar.markdown("<h2 style='text-align: center; color: #FF81AA;'>🔧 Feature Validator</h2>", unsafe_allow_html=True)
 
 # ============================================================================
@@ -203,7 +198,7 @@ def validate_against_pdl(bom_df: pd.DataFrame, pdl_df: Optional[pd.DataFrame]) -
         feat_code = str(row.get(feat_col, ''))
         stats['total_features_checked'] += 1
         
-        if pd.isna(feat_code) or not feat_code.strip():
+        if pd.isna(feat_code) or not feat_code.strip() or feat_code.lower() == 'none':
             results.append(ValidationResult(
                 part_num, 'MISSING', 'ERROR', 'Missing Data',
                 'Part has no feature code assigned.',
@@ -219,7 +214,7 @@ def validate_against_pdl(bom_df: pd.DataFrame, pdl_df: Optional[pd.DataFrame]) -
             part_num = str(row.get(part_col, f'Row {idx}'))
             feat_code = str(row.get(feat_col, ''))
             
-            if not feat_code: continue
+            if not feat_code or feat_code.lower() == 'none': continue
             
             if 'OBS' in feat_code.upper() or 'OLD' in feat_code.upper():
                 results.append(ValidationResult(
@@ -360,6 +355,39 @@ def page_upload_validate():
                 
     if st.session_state.get('run_complete'):
         st.success("Validation Complete! Navigate to Analytics to view insights and recommended fixes.")
+
+    # --- NEW: GENERATE SAMPLE DATA SECTION ---
+    st.markdown("---")
+    st.markdown("### 🧪 Or Try Sample Data")
+    st.markdown("Generate a correlated BoM and PDL dataset intentionally seeded with errors (Obsolete parts, Missing dependencies, Mutually exclusive features) to see how the Analytics engine works.")
+    
+    if st.button("🎲 Generate Sample Workspace", use_container_width=True):
+        # Create Sample BoM intentionally triggering our rules
+        bom_data = {
+            'Part_Number': ['PN-1001', 'PN-1002', 'PN-1003', 'PN-1004', 'PN-1005', 'PN-1006', 'PN-1007', 'PN-1008'],
+            'Feature_Code': ['ENG-V8', None, 'OBS-NAV-01', 'INT-LHD', 'INT-RHD', 'SUNROOF-PAN', 'WHEEL-ALLOY', 'SEAT-LEA'],
+            'Description': ['Engine Assembly', 'Chassis Bracket', 'Nav Module', 'Dashboard LHD', 'Steering Rack RHD', 'Sunroof Glass', 'Alloy Wheel', 'Leather Seat'],
+            'Quantity': [1, 2, 1, 1, 1, 1, 5, 2] # Quantity 5 will trigger a warning
+        }
+        st.session_state.bom_df = pd.DataFrame(bom_data)
+        st.session_state.bom_filename = "Sample_BoM_Data.csv"
+        
+        # Create Sample PDL Guidance
+        pdl_data = {
+            'Feature_Code': ['ENG-V8', 'OBS-NAV-01', 'INT-LHD', 'INT-RHD', 'SUNROOF-PAN', 'WHEEL-ALLOY', 'SEAT-LEA'],
+            'Status': ['Active', 'Obsolete', 'Active', 'Active', 'Active', 'Active', 'Active'],
+            'Rule_Type': ['None', 'Superseded', 'Mutually Exclusive', 'Mutually Exclusive', 'Prerequisite', 'Quantity Limit', 'None'],
+            'Constraint': ['None', 'Use NAV-02', 'Conflicts with RHD', 'Conflicts with LHD', 'Requires ROOF-PANEL', 'Max Qty 4', 'None']
+        }
+        st.session_state.pdl_df = pd.DataFrame(pdl_data)
+        st.session_state.pdl_filename = "Sample_PDL_Master.csv"
+        
+        # Clear old results to force a fresh run
+        if 'validation_results' in st.session_state: del st.session_state.validation_results
+        if 'validation_stats' in st.session_state: del st.session_state.validation_stats
+        st.session_state.run_complete = False
+        
+        st.rerun()
 
 def page_analytics():
     st.markdown('<div class="main-title"><h1>📊 Advanced Analytics & Insights</h1></div>', unsafe_allow_html=True)
