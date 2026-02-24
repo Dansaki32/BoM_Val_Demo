@@ -14,20 +14,19 @@ import os
 # ============================================================================
 
 BASE_DIR = Path(__file__).parent.absolute()
-ASSETS_DIR = BASE_DIR / "Assets"               # Fixed capital A
-CSS_PATH = ASSETS_DIR / "css" / "qr_theme.css"
-LOGO_PATH = ASSETS_DIR / "images" / "logo.png" # Fixed filename
+ASSETS_DIR = BASE_DIR / "Assets"
+LOGO_PATH = ASSETS_DIR / "images" / "logo.png"
 
 class Config:
     """QR_ Brand Color Palette"""
     COLORS = {
         'primary_red': '#D7171F',
+        'dark_red': '#A11117',
         'dark_grey': '#232324',
         'medium_grey': '#6C6E70',
         'light_grey': '#F2F2F2',
         'white': '#FFFFFF',
         'blue_1': '#0070BB',
-        'blue_2': '#00B7EB',
         'green': '#4D8B31',
         'orange': '#EE4B0F',
         'yellow': '#FFA602'
@@ -45,20 +44,131 @@ class Config:
 # ============================================================================
 
 def apply_custom_theme():
-    """Loads the external QR_ CSS file and injects it into Streamlit"""
-    if CSS_PATH.exists():
-        with open(CSS_PATH, "r") as f:
-            css_content = f.read()
-        st.markdown(f"<style>{css_content}</style>", unsafe_allow_html=True)
-    else:
-        st.warning(f"⚠️ CSS file not found at: {CSS_PATH}")
+    """Injects premium QR_ Brand CSS with web-safe fonts and modern UI elements"""
+    c = Config.COLORS
+    
+    theme_css = f"""
+        <style>
+        /* Import Inter as a web-safe fallback for Segoe UI */
+        @import url('https://fonts.googleapis.com/css2?family=Inter:wght@400;600;700&display=swap');
+
+        /* Global Typography & Background */
+        html, body, .stApp {{
+            background-color: {c['light_grey']} !important;
+            color: {c['dark_grey']} !important;
+            font-family: 'Segoe UI', 'Inter', sans-serif !important;
+        }}
+
+        /* Override Streamlit's default Pink focus rings with QR Red */
+        :root {{
+            --primary-color: {c['primary_red']};
+        }}
+
+        h1, h2, h3, h4, h5, h6, p, li, label, .stMarkdown, .dataframe, span, div {{ 
+            font-family: 'Segoe UI', 'Inter', sans-serif !important; 
+        }}
+
+        /* Modern Gradient Headers */
+        .main-title {{ 
+            background: linear-gradient(135deg, {c['primary_red']} 0%, {c['dark_red']} 100%); 
+            padding: 2rem; 
+            border-radius: 12px; 
+            margin-bottom: 2rem; 
+            box-shadow: 0 6px 15px rgba(215, 23, 31, 0.25); 
+        }}
+        .main-title h1 {{ color: {c['white']} !important; font-weight: 700 !important; margin: 0; }}
+
+        /* Primary Buttons */
+        .stButton>button {{ 
+            background: linear-gradient(135deg, {c['primary_red']} 0%, {c['dark_red']} 100%) !important; 
+            color: {c['white']} !important; 
+            border-radius: 8px; 
+            border: none; 
+            font-weight: 600; 
+            padding: 0.75rem 1.5rem; 
+            transition: all 0.3s ease; 
+            box-shadow: 0 4px 6px rgba(0,0,0,0.1);
+        }}
+        .stButton>button:hover {{ 
+            transform: translateY(-2px); 
+            box-shadow: 0 6px 12px rgba(215, 23, 31, 0.3); 
+        }}
+        .stButton>button:focus {{
+            outline: none !important;
+            box-shadow: 0 0 0 3px rgba(215, 23, 31, 0.5) !important;
+        }}
+
+        /* Sidebar Styling */
+        section[data-testid="stSidebar"] {{ 
+            background-color: {c['dark_grey']} !important; 
+            border-right: 4px solid {c['primary_red']}; 
+        }}
+        section[data-testid="stSidebar"] * {{ 
+            color: {c['white']} !important; 
+        }}
+        
+        /* Floating Content Cards */
+        .info-card {{ 
+            background-color: {c['white']}; 
+            padding: 1.5rem; 
+            border-radius: 12px; 
+            border-left: 5px solid {c['primary_red']}; 
+            margin: 1rem 0; 
+            box-shadow: 0 4px 10px rgba(0, 0, 0, 0.05); 
+            transition: transform 0.3s ease;
+        }}
+        .info-card:hover {{
+            transform: translateY(-3px);
+            box-shadow: 0 8px 15px rgba(0, 0, 0, 0.1);
+        }}
+        .info-card h3 {{ color: {c['dark_grey']} !important; margin-top: 0; }}
+        .info-card p {{ color: {c['medium_grey']} !important; }}
+
+        /* File Uploader */
+        .stFileUploader {{ 
+            background-color: {c['white']} !important; 
+            border: 2px dashed {c['medium_grey']} !important; 
+            border-radius: 12px; 
+            padding: 2rem; 
+            transition: border-color 0.3s ease;
+        }}
+        .stFileUploader:hover {{
+            border-color: {c['primary_red']} !important;
+        }}
+
+        /* Metrics */
+        .metric-container {{ 
+            background-color: {c['white']}; 
+            padding: 1.5rem; 
+            border-radius: 12px; 
+            box-shadow: 0 4px 10px rgba(0, 0, 0, 0.05); 
+            border: 2px solid transparent; 
+            transition: all 0.3s ease; 
+            text-align: center; 
+        }}
+        .metric-container:hover {{ 
+            border-color: {c['primary_red']}; 
+            transform: translateY(-3px); 
+        }}
+        [data-testid="stMetricValue"] {{ color: {c['primary_red']} !important; font-weight: 700 !important; font-size: 2.5rem !important; }}
+        [data-testid="stMetricLabel"] {{ color: {c['medium_grey']} !important; font-size: 1.1rem !important; font-weight: 600 !important; }}
+
+        /* DataFrames */
+        .stDataFrame, .dataframe {{ background-color: {c['white']} !important; border-radius: 8px; overflow: hidden; }}
+        .dataframe thead th {{ background-color: {c['dark_grey']} !important; color: {c['white']} !important; font-weight: 600; }}
+        
+        /* Hyperlinks */
+        a {{ color: {c['primary_red']} !important; text-decoration: underline !important; font-weight: 600; }}
+        </style>
+    """
+    st.markdown(theme_css, unsafe_allow_html=True)
 
 def show_logo():
     """Displays the QR_ Logo in the sidebar"""
     if LOGO_PATH.exists():
         st.sidebar.image(str(LOGO_PATH), use_container_width=True)
     else:
-        st.sidebar.markdown(f"<h2 style='text-align: center; color: {Config.COLORS['primary_red']};'>QUICK RELEASE_</h2>", unsafe_allow_html=True)
+        st.sidebar.markdown(f"<h2 style='text-align: center; color: {Config.COLORS['primary_red']}; font-weight: 700;'>QUICK RELEASE_</h2>", unsafe_allow_html=True)
 
 # ============================================================================
 # DATA MODELS & VALIDATION LOGIC
@@ -188,11 +298,11 @@ def create_gauge_chart(score):
     fig = go.Figure(go.Indicator(
         mode = "gauge+number",
         value = score,
-        title = {'text': "Buildability Risk Score", 'font': {'color': Config.COLORS['dark_grey'], 'size': 24, 'family': 'Segoe UI'}},
+        title = {'text': "Buildability Risk Score", 'font': {'color': Config.COLORS['dark_grey'], 'size': 24, 'family': 'Inter'}},
         gauge = {
             'axis': {'range': [0, 100], 'tickwidth': 1, 'tickcolor': Config.COLORS['dark_grey']},
             'bar': {'color': color},
-            'bgcolor': Config.COLORS['white'],
+            'bgcolor': Config.COLORS['light_grey'],
             'borderwidth': 2,
             'bordercolor': Config.COLORS['medium_grey'],
             'steps': [
@@ -201,7 +311,7 @@ def create_gauge_chart(score):
                 {'range': [50, 100], 'color': '#FACED0'}], # QR Light Red
         }
     ))
-    fig.update_layout(paper_bgcolor='rgba(0,0,0,0)', font={'color': Config.COLORS['dark_grey'], 'family': 'Segoe UI'}, height=350, margin=dict(l=20, r=20, t=50, b=20))
+    fig.update_layout(paper_bgcolor='rgba(0,0,0,0)', font={'color': Config.COLORS['dark_grey'], 'family': 'Inter'}, height=350, margin=dict(l=20, r=20, t=50, b=20))
     return fig
 
 # ============================================================================
@@ -209,8 +319,8 @@ def create_gauge_chart(score):
 # ============================================================================
 
 def page_upload_validate():
-    st.markdown('<h1>📤 Upload Configuration Files</h1>', unsafe_allow_html=True)
-    st.markdown('<div class="info-card">Upload your <strong>Bill of Materials (BoM)</strong> and the <strong>PDL Guidance File</strong> to perform advanced cross-reference validation.</div>', unsafe_allow_html=True)
+    st.markdown('<div class="main-title"><h1>📤 Upload Configuration Files</h1></div>', unsafe_allow_html=True)
+    st.markdown('<div class="info-card"><p>Upload your <strong>Bill of Materials (BoM)</strong> and the <strong>PDL Guidance File</strong> to perform advanced cross-reference validation.</p></div>', unsafe_allow_html=True)
     
     col1, col2 = st.columns(2)
     with col1:
@@ -304,7 +414,7 @@ def page_upload_validate():
         st.rerun()
 
 def page_analytics():
-    st.markdown('<h1>📊 Advanced Analytics & Insights</h1>', unsafe_allow_html=True)
+    st.markdown('<div class="main-title"><h1>📊 Advanced Analytics & Insights</h1></div>', unsafe_allow_html=True)
     if 'validation_results' not in st.session_state or 'validation_stats' not in st.session_state:
         st.warning("⚠️ Please upload files and run validation first.")
         return
@@ -336,7 +446,7 @@ def page_analytics():
             fig_tree = px.sunburst(df_res, path=['Severity', 'Issue Type'], color='Severity',
                                    color_discrete_map=Config.SEVERITY_COLORS)
             fig_tree.update_traces(textinfo="label+value") 
-            fig_tree.update_layout(paper_bgcolor='rgba(0,0,0,0)', plot_bgcolor='rgba(0,0,0,0)', margin=dict(t=10, l=0, r=0, b=10), font=dict(family='Segoe UI', color=Config.COLORS['dark_grey']))
+            fig_tree.update_layout(paper_bgcolor='rgba(0,0,0,0)', plot_bgcolor='rgba(0,0,0,0)', margin=dict(t=10, l=0, r=0, b=10), font=dict(family='Inter', color=Config.COLORS['dark_grey']))
             st.plotly_chart(fig_tree, use_container_width=True)
             
         with col_chart2:
@@ -345,7 +455,7 @@ def page_analytics():
             feature_counts.columns = ['Feature Code', 'Issue Count']
             fig_bar = px.bar(feature_counts, x='Issue Count', y='Feature Code', orientation='h', text='Issue Count')
             fig_bar.update_traces(marker_color=Config.COLORS['primary_red'], textposition='outside')
-            fig_bar.update_layout(paper_bgcolor='rgba(0,0,0,0)', plot_bgcolor='rgba(0,0,0,0)', yaxis={'categoryorder':'total ascending'}, margin=dict(t=10, l=0, r=20, b=10), font=dict(family='Segoe UI', color=Config.COLORS['dark_grey']))
+            fig_bar.update_layout(paper_bgcolor='rgba(0,0,0,0)', plot_bgcolor='rgba(0,0,0,0)', yaxis={'categoryorder':'total ascending'}, margin=dict(t=10, l=0, r=20, b=10), font=dict(family='Inter', color=Config.COLORS['dark_grey']))
             st.plotly_chart(fig_bar, use_container_width=True)
             
     st.markdown("---")
@@ -362,21 +472,21 @@ def page_analytics():
     for idx, row in df_results.iterrows():
         color = Config.SEVERITY_COLORS.get(row['Severity'], Config.COLORS['dark_grey'])
         st.markdown(f"""
-        <div class="issue-card" style="border-left: 5px solid {color};">
+        <div style="background-color: {Config.COLORS['white']}; padding: 1.5rem; border-radius: 12px; border-left: 6px solid {color}; margin-bottom: 1rem; box-shadow: 0 4px 10px rgba(0,0,0,0.05);">
             <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 10px;">
                 <h4 style="margin:0; color: {color} !important;">{row['Issue Type']}</h4>
                 <span style="background-color: {color}; color: white; padding: 4px 12px; border-radius: 12px; font-size: 0.8rem; font-weight: bold;">{row['Severity']}</span>
             </div>
             <p style="margin-bottom: 5px;"><strong>Part:</strong> {row['Part Number']} | <strong>Feature:</strong> {row['Feature Code']} | <strong>Engineer:</strong> {row['Engineer ID']}</p>
             <p style="color: {Config.COLORS['medium_grey']}; margin-bottom: 15px;"><em>{row['Message']}</em></p>
-            <div style="background-color: {Config.COLORS['light_grey']}; padding: 10px; border-radius: 6px; border: 1px solid #E1E2E3;">
+            <div style="background-color: {Config.COLORS['light_grey']}; padding: 12px; border-radius: 8px; border: 1px solid #E1E2E3;">
                 <strong style="color: {Config.COLORS['primary_red']};">💡 Recommended Fix:</strong><br>{row['Recommended Fix']}
             </div>
         </div>
         """, unsafe_allow_html=True)
 
 def page_auto_emails():
-    st.markdown('<h1>📧 D&R Auto-Communications</h1>', unsafe_allow_html=True)
+    st.markdown('<div class="main-title"><h1>📧 D&R Auto-Communications</h1></div>', unsafe_allow_html=True)
     
     if 'validation_results' not in st.session_state or not st.session_state.validation_results:
         st.warning("⚠️ Please run validation first to generate engineer communications.")
@@ -384,8 +494,8 @@ def page_auto_emails():
         
     st.markdown("""
         <div class="info-card">
-            Review the grouped BoM issues below. Click the draft button to open your default email client (e.g., Outlook).<br><br>
-            <strong>⚠️ Note regarding Supervisors:</strong> Because the system cannot directly query your local Outlook Active Directory structure, the 'CC' line has been pre-populated with a placeholder. <strong>Please replace the placeholder with the Engineer's Supervisor before sending.</strong>
+            <p>Review the grouped BoM issues below. Click the draft button to open your default email client (e.g., Outlook).</p>
+            <p><strong>⚠️ Note regarding Supervisors:</strong> Because the system cannot directly query your local Outlook Active Directory structure, the 'CC' line has been pre-populated with a placeholder. <strong>Please replace the placeholder with the Engineer's Supervisor before sending.</strong></p>
         </div>
     """, unsafe_allow_html=True)
     
@@ -432,16 +542,16 @@ def page_auto_emails():
             st.markdown(f'''
                 <a href="{mailto_link}" target="_blank" style="text-decoration: none;">
                     <button style="
-                        background-color: {Config.COLORS['primary_red']};
-                        color: white; border: none; padding: 10px 20px; border-radius: 4px;
-                        font-weight: bold; cursor: pointer; margin-top: 5px; margin-bottom: 10px;
-                        font-family: 'Segoe UI', sans-serif;
+                        background: linear-gradient(135deg, {Config.COLORS['primary_red']} 0%, {Config.COLORS['dark_red']} 100%);
+                        color: white; border: none; padding: 10px 20px; border-radius: 8px;
+                        font-weight: 600; cursor: pointer; margin-top: 10px; margin-bottom: 10px;
+                        box-shadow: 0 4px 6px rgba(0,0,0,0.1); font-family: 'Inter', sans-serif;
                     ">📨 Draft Email in Outlook</button>
                 </a>
             ''', unsafe_allow_html=True)
 
 def page_nightletter():
-    st.markdown('<h1>🌙 Executive Nightletter</h1>', unsafe_allow_html=True)
+    st.markdown('<div class="main-title"><h1>🌙 Executive Nightletter</h1></div>', unsafe_allow_html=True)
     
     if 'validation_results' not in st.session_state or 'validation_stats' not in st.session_state:
         st.warning("⚠️ Please run a validation first to generate the Nightletter.")
@@ -450,7 +560,7 @@ def page_nightletter():
     stats = st.session_state.validation_stats
     results = st.session_state.validation_results
     
-    st.markdown('<div class="info-card">This tab provides a condensed, high-level summary of the day\'s validation run, designed to be emailed to management and program supervisors.</div>', unsafe_allow_html=True)
+    st.markdown('<div class="info-card"><p>This tab provides a condensed, high-level summary of the day\'s validation run, designed to be emailed to management and program supervisors.</p></div>', unsafe_allow_html=True)
     
     col1, col2, col3 = st.columns(3)
     with col1:
@@ -515,16 +625,16 @@ Quick Release_ Validation System"""
     st.markdown(f'''
         <a href="{mailto_link}" target="_blank" style="text-decoration: none;">
             <button style="
-                background-color: {Config.COLORS['green']};
-                color: white; border: none; padding: 15px 30px; border-radius: 4px;
-                font-weight: bold; font-size: 1.1rem; cursor: pointer; margin-top: 10px;
-                font-family: 'Segoe UI', sans-serif; width: 100%;
+                background: linear-gradient(135deg, {Config.COLORS['green']} 0%, #3A6825 100%);
+                color: white; border: none; padding: 15px 30px; border-radius: 8px;
+                font-weight: 600; font-size: 1.1rem; cursor: pointer; margin-top: 10px;
+                box-shadow: 0 4px 6px rgba(0,0,0,0.1); width: 100%; font-family: 'Inter', sans-serif;
             ">🚀 Send Nightletter via Outlook</button>
         </a>
     ''', unsafe_allow_html=True)
 
 def page_dashboard():
-    st.markdown('<h1>🏠 Dashboard Home</h1>', unsafe_allow_html=True)
+    st.markdown('<div class="main-title"><h1>🏠 Dashboard Home</h1></div>', unsafe_allow_html=True)
     col1, col2, col3 = st.columns(3)
     with col1:
         st.markdown("""<div class="info-card"><h3>Step 1: Upload Data</h3><p>Upload your BoM and PDL files to begin the validation process.</p></div>""", unsafe_allow_html=True)
