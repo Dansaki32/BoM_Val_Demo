@@ -31,14 +31,18 @@ def load_custom_font_and_theme():
     theme_css = f"""
         <style>
         {font_css}
+        html, body, [class*='css'] {{
+            background-color: #18191A !important;
+            color: #FFFFFF !important;
+        }}
         .qr-accent {{
-            color: #AD1212;
+            color: #FF81AA;
             font-weight: bold;
         }}
         .qr-error {{
-            background: #FFD6D6;
-            color: #AD1212;
-            border-left: 5px solid #D63030;
+            background: #3A2323;
+            color: #FF81AA;
+            border-left: 5px solid #AD1212;
             padding: 0.5em 1em;
             margin-bottom: 1em;
             border-radius: 4px;
@@ -54,24 +58,34 @@ def load_custom_font_and_theme():
             background-color: #D63030;
             color: #FFF;
         }}
-        .stSidebar {{
-            background-color: #FFF8FA !important;
+        section[data-testid="stSidebar"] {{
+            background-color: #1A1D21 !important;
+        }}
+        .stSidebarContent {{
+            background-color: #1A1D21 !important;
+            color: #FFF !important;
         }}
         .stRadio>div>label[data-baseweb="radio"]>div:first-child {{
-            border-color: #AD1212 !important;
+            border-color: #FF81AA !important;
         }}
         .stRadio>div>label[data-baseweb="radio"]>div:last-child {{
-            color: #AD1212 !important;
+            color: #FF81AA !important;
         }}
         .st-bb {{
-            color: #AD1212 !important;
+            color: #FF81AA !important;
         }}
         .st-bc {{
-            background: #FF81AA !important;
+            background: #AD1212 !important;
         }}
         .stAlert {{
             border-left: 5px solid #AD1212 !important;
+            background: #3A2323 !important;
+            color: #FF81AA !important;
         }}
+        .stDataFrame, .stTable, .stDataFrame thead, .stDataFrame tbody, .stDataFrame tr, .stDataFrame td, .stDataFrame th {
+            background-color: #23272A !important;
+            color: #FFF !important;
+        }
         </style>
     """
     st.markdown(theme_css, unsafe_allow_html=True)
