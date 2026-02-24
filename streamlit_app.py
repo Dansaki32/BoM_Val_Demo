@@ -1,10 +1,4 @@
-Here is the fully corrected code with the indentation fixed around line 778 (inside the `page_upload_validate` function). 
 
-The issue was that `with st.spinner("📥 Loading file..."):` was indented too far, and `df = load_uploaded_file(uploaded_file)` wasn't indented correctly underneath it.
-
-Here is the complete, working code:
-
-```python
 import streamlit as st
 from pathlib import Path
 import base64
@@ -1049,4 +1043,3 @@ def main():
 
 if __name__ == "__main__":
     main()
-```
