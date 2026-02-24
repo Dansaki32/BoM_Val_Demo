@@ -1,1 +1,7 @@
 streamlit
+pandas
+google-generativeai
+plotly
+pypdf
+google-cloud-storage
+google-auth
