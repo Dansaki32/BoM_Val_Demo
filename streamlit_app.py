@@ -14,9 +14,9 @@ import os
 # ============================================================================
 
 BASE_DIR = Path(__file__).parent.absolute()
-ASSETS_DIR = BASE_DIR / "assets"
+ASSETS_DIR = BASE_DIR / "Assets"
 CSS_PATH = ASSETS_DIR / "css" / "qr_theme.css"
-LOGO_PATH = ASSETS_DIR / "images" / "qr_logo_long.png"
+LOGO_PATH = ASSETS_DIR / "images" / "logo.png"
 
 class Config:
     """QR_ Brand Color Palette"""
