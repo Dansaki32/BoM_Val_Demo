@@ -53,12 +53,15 @@ def log_run_to_db(parts, critical, errors, warnings, score):
 
 def get_historical_data():
     conn = sqlite3.connect(DB_PATH)
-    df = pd.read_sql_query("SELECT * FROM runs ORDER BY timestamp ASC", conn)
+    try:
+        df = pd.read_sql_query("SELECT * FROM runs ORDER BY timestamp ASC", conn)
+    except:
+        df = pd.DataFrame()
     conn.close()
     return df
 
 # ============================================================================
-# 3. STYLING INJECTION
+# 3. STYLING & HELPER FUNCTIONS
 # ============================================================================
 
 def apply_custom_theme():
@@ -78,6 +81,13 @@ def apply_custom_theme():
         </style>
     """)
     st.markdown(theme_css, unsafe_allow_html=True)
+
+def show_logo():
+    """Displays the QR_ Logo in the sidebar"""
+    if LOGO_PATH.exists():
+        st.sidebar.image(str(LOGO_PATH), use_container_width=True)
+    else:
+        st.sidebar.markdown(f"<h2 style='text-align: center; color: {Config.COLORS['primary_red']}; font-weight: 700; letter-spacing: 1px;'>QUICK RELEASE_</h2>", unsafe_allow_html=True)
 
 # ============================================================================
 # 4. VECTORIZED VALIDATION ENGINE
@@ -397,6 +407,9 @@ def main():
     show_logo()
     
     # Native Streamlit Navigation (Streamlit >= 1.36)
+    if "results_df" not in st.session_state:
+        st.session_state.results_df = pd.DataFrame()
+
     pages = {
         "Core Workflow": [
             st.Page(page_dashboard, title="Dashboard & Trends", icon="🏠"),
