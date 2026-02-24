@@ -14,9 +14,9 @@ import os
 # ============================================================================
 
 BASE_DIR = Path(__file__).parent.absolute()
-ASSETS_DIR = BASE_DIR / "Assets"
+ASSETS_DIR = BASE_DIR / "Assets"               # Fixed capital A
 CSS_PATH = ASSETS_DIR / "css" / "qr_theme.css"
-LOGO_PATH = ASSETS_DIR / "images" / "logo.png"
+LOGO_PATH = ASSETS_DIR / "images" / "logo.png" # Fixed filename
 
 class Config:
     """QR_ Brand Color Palette"""
@@ -51,7 +51,7 @@ def apply_custom_theme():
             css_content = f.read()
         st.markdown(f"<style>{css_content}</style>", unsafe_allow_html=True)
     else:
-        st.warning("⚠️ CSS file not found. Please ensure 'assets/css/qr_theme.css' exists.")
+        st.warning(f"⚠️ CSS file not found at: {CSS_PATH}")
 
 def show_logo():
     """Displays the QR_ Logo in the sidebar"""
