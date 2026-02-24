@@ -13,7 +13,6 @@ import plotly.graph_objects as go
 # CONFIGURATION & CONSTANTS
 # ============================================================================
 
-# Get the absolute path to the folder where this script is running
 BASE_DIR = Path(__file__).parent.absolute()
 
 class Config:
@@ -23,7 +22,6 @@ class Config:
     FONT_LIGHT_PATH = BASE_DIR / "Dolce Vita Light (1).ttf"
     LOGO_PATH = BASE_DIR / "logo.png"
     
-    # QuickRelease.co.uk inspired color scheme
     COLORS = {
         'primary': '#AD1212',
         'secondary': '#D63030',
@@ -51,7 +49,6 @@ class Config:
 
 @st.cache_data
 def load_custom_font() -> str:
-    """Load custom fonts and return CSS"""
     css = ""
     if Config.FONT_REGULAR_PATH.exists():
         try:
@@ -83,43 +80,25 @@ def apply_custom_theme():
     theme_css = f"""
         <style>
         {font_css}
-        
-        /* Force font on EVERYTHING to override Streamlit defaults */
-        * {{
-            font-family: 'DolceVita', 'Inter', sans-serif !important;
-        }}
-        
-        html, body, [class*='css'], .stApp {{
-            background-color: {c['background']} !important;
-            color: {c['text']} !important;
-        }}
-        
+        * {{ font-family: 'DolceVita', 'Inter', sans-serif !important; }}
+        html, body, [class*='css'], .stApp {{ background-color: {c['background']} !important; color: {c['text']} !important; }}
         p, span, div, label, .stMarkdown {{ color: {c['text']} !important; }}
         h1, h2, h3, h4, h5, h6 {{ color: {c['text']} !important; font-weight: bold !important; }}
-        
         .main-title {{ background: linear-gradient(135deg, {c['primary']} 0%, {c['secondary']} 100%); padding: 2rem; border-radius: 12px; margin-bottom: 2rem; box-shadow: 0 4px 6px rgba(0, 0, 0, 0.3); }}
-        
         .stButton>button {{ background: linear-gradient(135deg, {c['primary']} 0%, {c['secondary']} 100%); color: {c['text']} !important; border-radius: 8px; border: none; font-weight: bold; padding: 0.75rem 1.5rem; transition: all 0.3s ease; }}
         .stButton>button:hover {{ transform: translateY(-2px); box-shadow: 0 6px 12px rgba(173, 18, 18, 0.4); }}
-        
         section[data-testid="stSidebar"] {{ background-color: {c['sidebar_bg']} !important; border-right: 2px solid {c['primary']}; }}
         section[data-testid="stSidebar"] * {{ color: {c['text']} !important; }}
-        
         .stFileUploader {{ background-color: {c['card_bg']} !important; border: 2px dashed {c['highlight']} !important; border-radius: 12px; padding: 2rem; }}
         .stDataFrame, .dataframe {{ background-color: {c['card_bg']} !important; color: {c['text']} !important; }}
         .dataframe thead th {{ background-color: {c['primary']} !important; color: {c['text']} !important; font-weight: bold; }}
-        
         .info-card {{ background: linear-gradient(135deg, {c['card_bg']} 0%, rgba(173, 18, 18, 0.1) 100%); padding: 1.5rem; border-radius: 12px; border-left: 4px solid {c['highlight']}; margin: 1rem 0; color: {c['text']} !important; }}
         .error-card {{ background: linear-gradient(135deg, {c['error_bg']} 0%, rgba(173, 18, 18, 0.2) 100%); padding: 1.5rem; border-radius: 12px; border-left: 4px solid {c['primary']}; margin: 1rem 0; color: {c['text']} !important; }}
         .success-card {{ background: linear-gradient(135deg, {c['card_bg']} 0%, rgba(40, 167, 69, 0.1) 100%); padding: 1.5rem; border-radius: 12px; border-left: 4px solid {c['success']}; margin: 1rem 0; color: {c['text']} !important; }}
-        
         .metric-container {{ background-color: {c['card_bg']}; padding: 1.5rem; border-radius: 12px; box-shadow: 0 4px 6px rgba(0, 0, 0, 0.2); border: 2px solid transparent; transition: all 0.3s ease; text-align: center; }}
         .metric-container:hover {{ border-color: {c['highlight']}; transform: translateY(-2px); }}
-        
         [data-testid="stMetricValue"] {{ color: {c['highlight']} !important; font-weight: bold !important; font-size: 2.5rem !important; }}
         [data-testid="stMetricLabel"] {{ color: {c['text_muted']} !important; font-size: 1.1rem !important; }}
-        
-        /* Scrollbar */
         ::-webkit-scrollbar {{ width: 10px; height: 10px; }}
         ::-webkit-scrollbar-track {{ background: {c['background']}; }}
         ::-webkit-scrollbar-thumb {{ background: {c['primary']}; border-radius: 5px; }}
@@ -175,7 +154,6 @@ def load_uploaded_file(uploaded_file) -> Optional[pd.DataFrame]:
         return None
 
 def validate_against_pdl(bom_df: pd.DataFrame, pdl_df: Optional[pd.DataFrame]) -> Tuple[List[ValidationResult], Dict]:
-    """Advanced validation cross-referencing BoM with PDL constraints"""
     results = []
     stats = {
         'total_parts': len(bom_df['Part_Number'].unique()) if 'Part_Number' in bom_df.columns else len(bom_df),
@@ -186,13 +164,11 @@ def validate_against_pdl(bom_df: pd.DataFrame, pdl_df: Optional[pd.DataFrame]) -
         'health_score': 100
     }
     
-    if bom_df.empty:
-        return results, stats
+    if bom_df.empty: return results, stats
         
     part_col = 'Part_Number' if 'Part_Number' in bom_df.columns else bom_df.columns[0]
     feat_col = 'Feature_Code' if 'Feature_Code' in bom_df.columns else (bom_df.columns[1] if len(bom_df.columns)>1 else None)
     
-    # Base BoM Validation
     for idx, row in bom_df.iterrows():
         part_num = str(row.get(part_col, f'Row {idx}'))
         feat_code = str(row.get(feat_col, ''))
@@ -206,7 +182,6 @@ def validate_against_pdl(bom_df: pd.DataFrame, pdl_df: Optional[pd.DataFrame]) -
             ))
             stats['errors'] += 1
             
-    # PDL Cross-Reference Validation
     if pdl_df is not None and not pdl_df.empty and feat_col:
         build_features = bom_df[feat_col].dropna().astype(str).unique()
         
@@ -251,7 +226,6 @@ def validate_against_pdl(bom_df: pd.DataFrame, pdl_df: Optional[pd.DataFrame]) -
                     stats['warnings'] += 1
             except: pass
 
-    # Calculate Health Score
     total_issues = stats['critical'] * 3 + stats['errors'] * 2 + stats['warnings']
     penalty = min(total_issues * (100 / max(stats['total_features_checked'], 1)), 100)
     stats['health_score'] = max(0, round(100 - penalty))
@@ -276,9 +250,9 @@ def create_gauge_chart(score):
             'borderwidth': 2,
             'bordercolor': "gray",
             'steps': [
-                {'range': [0, 50], 'color': 'rgba(40, 167, 69, 0.3)'},
+                {'range': [0, 50], 'color': 'rgba(173, 18, 18, 0.3)'},
                 {'range': [50, 80], 'color': 'rgba(255, 193, 7, 0.3)'},
-                {'range': [80, 100], 'color': 'rgba(173, 18, 18, 0.3)'}],
+                {'range': [80, 100], 'color': 'rgba(40, 167, 69, 0.3)'}],
         }
     ))
     fig.update_layout(paper_bgcolor='rgba(0,0,0,0)', font={'color': Config.COLORS['text']}, height=350, margin=dict(l=20, r=20, t=50, b=20))
@@ -359,7 +333,7 @@ def page_upload_validate():
     # --- MASSIVELY UPGRADED SAMPLE DATA GENERATOR ---
     st.markdown("---")
     st.markdown("### 🧪 Or Try Sample Data")
-    st.markdown("Generate a large, realistic BoM (250 parts) intentionally seeded with a distribution of PDL errors to demonstrate the Analytics engine.")
+    st.markdown("Generate a large, realistic BoM (250 parts) intentionally seeded with an uneven distribution of PDL errors to demonstrate the Analytics engine.")
     
     if st.button("🎲 Generate Large Sample Workspace", use_container_width=True):
         np.random.seed(42) # Ensure reproducible but random-looking results
@@ -367,14 +341,13 @@ def page_upload_validate():
         num_parts = 250
         part_numbers = [f"PN-F{10000 + i}" for i in range(num_parts)]
         
-        # Valid features that don't trigger any rules
         valid_features = ['ENG-V8', 'TRANS-AUTO', 'SEAT-LEA', 'WHEEL-18', 'NAV-02', 'AUDIO-PREM', 'LIGHT-LED', 'TRIM-CHROME', 'SUSP-SPORT']
         
         feature_codes = []
         quantities = []
         descriptions = []
         
-        # Generate 250 parts with a 75% valid / 25% error distribution
+        # Generate 250 parts with an uneven, realistic error distribution
         for i in range(num_parts):
             rand_val = np.random.random()
             
@@ -383,31 +356,31 @@ def page_upload_validate():
                 feature_codes.append(np.random.choice(valid_features))
                 quantities.append(np.random.randint(1, 4))
                 descriptions.append("Standard Production Component")
-            elif rand_val < 0.80:
-                # 5% Obsolete (Critical)
-                feature_codes.append('OBS-NAV-01')
-                quantities.append(1)
-                descriptions.append("Legacy Navigation Module")
             elif rand_val < 0.85:
-                # 5% Missing Data (Error)
+                # 10% Missing Data (Error) - Very Common
                 feature_codes.append(None)
                 quantities.append(1)
                 descriptions.append("Unassigned Bracket")
-            elif rand_val < 0.90:
-                # 5% Mutually Exclusive (Critical) - Mix of LHD and RHD
+            elif rand_val < 0.93:
+                # 8% Obsolete (Critical) - Common
+                feature_codes.append('OBS-NAV-01')
+                quantities.append(1)
+                descriptions.append("Legacy Navigation Module")
+            elif rand_val < 0.97:
+                # 4% Quantity Warning - Less Common
+                feature_codes.append('WHEEL-18')
+                quantities.append(np.random.randint(5, 12)) 
+                descriptions.append("Alloy Wheel")
+            elif rand_val < 0.99:
+                # 2% Mutually Exclusive (Critical) - Rare
                 feature_codes.append(np.random.choice(['INT-LHD', 'INT-RHD']))
                 quantities.append(1)
                 descriptions.append("Directional Interior Trim")
-            elif rand_val < 0.95:
-                # 5% Missing Dependency (Error) - Sunroof without Roof
+            else:
+                # 1% Missing Dependency (Error) - Very Rare
                 feature_codes.append('SUNROOF-PAN')
                 quantities.append(1)
                 descriptions.append("Panoramic Sunroof Glass")
-            else:
-                # 5% Quantity Warning
-                feature_codes.append('WHEEL-18')
-                quantities.append(np.random.randint(5, 12)) # Triggers > 4 warning
-                descriptions.append("Alloy Wheel")
                 
         st.session_state.bom_df = pd.DataFrame({
             'Part_Number': part_numbers,
@@ -417,7 +390,6 @@ def page_upload_validate():
         })
         st.session_state.bom_filename = "Large_Sample_BoM_Data.csv"
         
-        # Create corresponding PDL Rules DataFrame
         st.session_state.pdl_df = pd.DataFrame({
             'Feature_Code': ['ENG-V8', 'OBS-NAV-01', 'INT-LHD', 'INT-RHD', 'SUNROOF-PAN', 'WHEEL-18'],
             'Status': ['Active', 'Obsolete', 'Active', 'Active', 'Active', 'Active'],
@@ -426,7 +398,6 @@ def page_upload_validate():
         })
         st.session_state.pdl_filename = "Master_PDL_Rules.csv"
         
-        # Clear old results to force a fresh run
         if 'validation_results' in st.session_state: del st.session_state.validation_results
         if 'validation_stats' in st.session_state: del st.session_state.validation_stats
         st.session_state.run_complete = False
@@ -443,7 +414,6 @@ def page_analytics():
     results = st.session_state.validation_results
     stats = st.session_state.validation_stats
     
-    # SAFE GETTERS to prevent KeyErrors
     health_score = stats.get('health_score', 100)
     critical_count = stats.get('critical', 0)
     error_count = stats.get('errors', 0)
@@ -480,30 +450,43 @@ def page_analytics():
         
         with col_chart1:
             st.markdown("### Issue Distribution")
-            fig_tree = px.treemap(
+            # Upgraded to Sunburst chart for better hierarchical view with text labels
+            fig_tree = px.sunburst(
                 df_res, 
                 path=['Severity', 'Issue Type'], 
                 color='Severity',
                 color_discrete_map=Config.SEVERITY_COLORS,
                 template="plotly_dark"
             )
-            fig_tree.update_layout(paper_bgcolor='rgba(0,0,0,0)', plot_bgcolor='rgba(0,0,0,0)', margin=dict(t=20, l=0, r=0, b=0))
+            fig_tree.update_traces(textinfo="label+value") # Shows the actual numbers
+            fig_tree.update_layout(paper_bgcolor='rgba(0,0,0,0)', plot_bgcolor='rgba(0,0,0,0)', margin=dict(t=10, l=0, r=0, b=10))
             st.plotly_chart(fig_tree, use_container_width=True)
             
         with col_chart2:
-            st.markdown("### Most Impacted Parts")
-            part_counts = df_res['Part Number'].value_counts().head(7).reset_index()
-            part_counts.columns = ['Part Number', 'Issues']
+            st.markdown("### Most Problematic Features")
+            # Changed aggregation from Part Number to Feature Code
+            # This shows which features are causing the most widespread issues across the BoM
+            feature_counts = df_res['Feature Code'].replace('MISSING', 'Unassigned').value_counts().head(7).reset_index()
+            feature_counts.columns = ['Feature Code', 'Issue Count']
+            
             fig_bar = px.bar(
-                part_counts, 
-                x='Issues', 
-                y='Part Number', 
+                feature_counts, 
+                x='Issue Count', 
+                y='Feature Code', 
                 orientation='h',
-                color='Issues',
-                color_continuous_scale=[Config.COLORS['secondary'], Config.COLORS['primary']],
+                text='Issue Count', # Adds the number to the end of the bar
                 template="plotly_dark"
             )
-            fig_bar.update_layout(paper_bgcolor='rgba(0,0,0,0)', plot_bgcolor='rgba(0,0,0,0)', yaxis={'categoryorder':'total ascending'})
+            # Removed the confusing color scale, just using the brand primary color
+            fig_bar.update_traces(marker_color=Config.COLORS['primary'], textposition='outside')
+            fig_bar.update_layout(
+                paper_bgcolor='rgba(0,0,0,0)', 
+                plot_bgcolor='rgba(0,0,0,0)', 
+                yaxis={'categoryorder':'total ascending'},
+                xaxis_title="Number of Impacted Parts",
+                yaxis_title="",
+                margin=dict(t=10, l=0, r=20, b=10)
+            )
             st.plotly_chart(fig_bar, use_container_width=True)
             
     st.markdown("---")
@@ -549,7 +532,6 @@ def main():
     st.set_page_config(page_title="Feature Code Validator | Ford OEM", page_icon="🔧", layout="wide", initial_sidebar_state="expanded")
     apply_custom_theme()
     
-    # Initialize state
     if 'bom_df' not in st.session_state: st.session_state.bom_df = None
     if 'pdl_df' not in st.session_state: st.session_state.pdl_df = None
     
