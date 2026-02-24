@@ -9,9 +9,6 @@ import urllib.parse
 import textwrap
 import io
 import sqlite3
-import smtplib
-from email.mime.text import MIMEText
-from email.mime.multipart import MIMEMultipart
 
 # ============================================================================
 # 1. CONFIGURATION & BRANDING
@@ -83,38 +80,48 @@ def apply_custom_theme():
     st.markdown(theme_css, unsafe_allow_html=True)
 
 def show_logo():
-    """Displays the QR_ Logo in the sidebar"""
     if LOGO_PATH.exists():
         st.sidebar.image(str(LOGO_PATH), use_container_width=True)
     else:
         st.sidebar.markdown(f"<h2 style='text-align: center; color: {Config.COLORS['primary_red']}; font-weight: 700; letter-spacing: 1px;'>QUICK RELEASE_</h2>", unsafe_allow_html=True)
 
+def auto_detect_columns(df):
+    """Magic column detection based on common naming conventions"""
+    cols = [c.upper() for c in df.columns]
+    part_col = next((c for c in df.columns if 'PART' in c.upper()), df.columns[0])
+    feat_col = next((c for c in df.columns if 'FEAT' in c.upper() or 'CODE' in c.upper()), df.columns[1] if len(df.columns)>1 else None)
+    eng_col = next((c for c in df.columns if c.upper() in ['ENGINEER_ID', 'D&R_ID', 'ENGINEER', 'OWNER', 'ENG_ID']), None)
+    qty_col = next((c for c in df.columns if 'QTY' in c.upper() or 'QUANTITY' in c.upper()), None)
+    return part_col, feat_col, eng_col, qty_col
+
 # ============================================================================
 # 4. VECTORIZED VALIDATION ENGINE
 # ============================================================================
 
-def run_vectorized_validation(bom_df, pdl_df, col_map):
-    p_col, f_col, e_col, q_col = col_map['part'], col_map['feat'], col_map['eng'], col_map['qty']
+def run_vectorized_validation(bom_df, pdl_df):
+    p_col, f_col, e_col, q_col = auto_detect_columns(bom_df)
     results = []
     
     progress_bar = st.progress(0)
     status_text = st.empty()
     
-    # 1. Check Missing Features (Vectorized)
+    # 1. Check Missing Features
     status_text.text("Checking for missing data...")
-    missing_mask = bom_df[f_col].isna() | (bom_df[f_col].astype(str).str.strip() == '') | (bom_df[f_col].astype(str).str.lower() == 'none')
-    for _, row in bom_df[missing_mask].iterrows():
-        results.append({
-            'Part Number': str(row.get(p_col, 'Unknown')), 'Feature Code': 'MISSING',
-            'Engineer ID': str(row.get(e_col, 'Unassigned')), 'Severity': 'ERROR',
-            'Issue Type': 'Missing Data', 'Message': 'Part has no feature code assigned.',
-            'Recommended Fix': 'Assign a valid feature code.', 'Resolved': False
-        })
+    if f_col:
+        missing_mask = bom_df[f_col].isna() | (bom_df[f_col].astype(str).str.strip() == '') | (bom_df[f_col].astype(str).str.lower() == 'none')
+        for _, row in bom_df[missing_mask].iterrows():
+            eng_id = str(row[e_col]) if e_col and pd.notna(row[e_col]) else 'Unassigned'
+            results.append({
+                'Part Number': str(row.get(p_col, 'Unknown')), 'Feature Code': 'MISSING',
+                'Engineer ID': eng_id, 'Severity': 'ERROR',
+                'Issue Type': 'Missing Data', 'Message': 'Part has no feature code assigned.',
+                'Recommended Fix': 'Assign a valid feature code.', 'Resolved': False
+            })
     progress_bar.progress(25)
     
-    # Process PDL Rules Dynamically
-    if pdl_df is not None and not pdl_df.empty and 'Rule_Type' in pdl_df.columns:
-        valid_bom = bom_df[~missing_mask].copy()
+    # 2. Process PDL Rules Dynamically
+    if pdl_df is not None and not pdl_df.empty and 'Rule_Type' in pdl_df.columns and f_col:
+        valid_bom = bom_df[~missing_mask].copy() if f_col else bom_df.copy()
         valid_bom[f_col] = valid_bom[f_col].astype(str)
         build_features = valid_bom[f_col].unique()
         
@@ -122,60 +129,42 @@ def run_vectorized_validation(bom_df, pdl_df, col_map):
         merged = valid_bom.merge(pdl_df, left_on=f_col, right_on='Feature_Code', how='inner')
         progress_bar.progress(50)
         
-        # 2. Obsolete Features
-        status_text.text("Validating Obsolete Features...")
-        obs_df = merged[merged['Rule_Type'].str.upper() == 'OBSOLETE']
-        for _, row in obs_df.iterrows():
-            results.append({
-                'Part Number': str(row[p_col]), 'Feature Code': str(row[f_col]),
-                'Engineer ID': str(row.get(e_col, 'Unassigned')), 'Severity': 'CRITICAL',
-                'Issue Type': 'Obsolete Feature', 'Message': 'Feature is marked as obsolete.',
-                'Recommended Fix': f"Replace with superseding feature: {row.get('Constraint_Value', 'Unknown')}", 'Resolved': False
-            })
-        progress_bar.progress(70)
-        
-        # 3. Mutually Exclusive
-        status_text.text("Checking Mutually Exclusive Conflicts...")
-        mut_df = merged[merged['Rule_Type'].str.upper() == 'MUTUALLY_EXCLUSIVE']
-        for _, row in mut_df.iterrows():
-            conflict_feat = str(row.get('Constraint_Value', ''))
-            if conflict_feat in build_features:
+        for _, row in merged.iterrows():
+            rule = str(row.get('Rule_Type', '')).upper()
+            val = str(row.get('Constraint_Value', ''))
+            eng_id = str(row[e_col]) if e_col and pd.notna(row[e_col]) else 'Unassigned'
+            
+            if rule == 'OBSOLETE':
                 results.append({
                     'Part Number': str(row[p_col]), 'Feature Code': str(row[f_col]),
-                    'Engineer ID': str(row.get(e_col, 'Unassigned')), 'Severity': 'CRITICAL',
-                    'Issue Type': 'Mutually Exclusive', 'Message': f"Conflicts with {conflict_feat} in the same build.",
+                    'Engineer ID': eng_id, 'Severity': 'CRITICAL',
+                    'Issue Type': 'Obsolete Feature', 'Message': 'Feature is marked as obsolete.',
+                    'Recommended Fix': f"Replace with superseding feature: {val}", 'Resolved': False
+                })
+            elif rule == 'MUTUALLY_EXCLUSIVE' and val in build_features:
+                results.append({
+                    'Part Number': str(row[p_col]), 'Feature Code': str(row[f_col]),
+                    'Engineer ID': eng_id, 'Severity': 'CRITICAL',
+                    'Issue Type': 'Mutually Exclusive', 'Message': f"Conflicts with {val} in the same build.",
                     'Recommended Fix': 'Review build configuration. Remove conflicting part.', 'Resolved': False
                 })
-        progress_bar.progress(85)
-        
-        # 4. Prerequisites
-        status_text.text("Verifying Prerequisites...")
-        req_df = merged[merged['Rule_Type'].str.upper() == 'REQUIRES']
-        for _, row in req_df.iterrows():
-            req_feat = str(row.get('Constraint_Value', ''))
-            if req_feat not in build_features:
+            elif rule == 'REQUIRES' and val not in build_features:
                 results.append({
                     'Part Number': str(row[p_col]), 'Feature Code': str(row[f_col]),
-                    'Engineer ID': str(row.get(e_col, 'Unassigned')), 'Severity': 'ERROR',
-                    'Issue Type': 'Missing Dependency', 'Message': f"Requires prerequisite feature {req_feat}.",
-                    'Recommended Fix': f"Add part with feature {req_feat} to the BoM.", 'Resolved': False
+                    'Engineer ID': eng_id, 'Severity': 'ERROR',
+                    'Issue Type': 'Missing Dependency', 'Message': f"Requires prerequisite feature {val}.",
+                    'Recommended Fix': f"Add part with feature {val} to the BoM.", 'Resolved': False
                 })
-                
-        # 5. Max Quantity
-        status_text.text("Checking Quantity Limits...")
-        qty_df = merged[merged['Rule_Type'].str.upper() == 'MAX_QTY']
-        for _, row in qty_df.iterrows():
-            try:
-                max_q = float(row.get('Constraint_Value', 999))
-                actual_q = float(row.get(q_col, 1))
-                if actual_q > max_q:
-                    results.append({
-                        'Part Number': str(row[p_col]), 'Feature Code': str(row[f_col]),
-                        'Engineer ID': str(row.get(e_col, 'Unassigned')), 'Severity': 'WARNING',
-                        'Issue Type': 'Quantity Exceeded', 'Message': f"Qty {actual_q} exceeds PDL limit of {max_q}.",
-                        'Recommended Fix': 'Verify quantity requirements with engineering.', 'Resolved': False
-                    })
-            except: pass
+            elif rule == 'MAX_QTY' and q_col:
+                try:
+                    if float(row.get(q_col, 1)) > float(val):
+                        results.append({
+                            'Part Number': str(row[p_col]), 'Feature Code': str(row[f_col]),
+                            'Engineer ID': eng_id, 'Severity': 'WARNING',
+                            'Issue Type': 'Quantity Exceeded', 'Message': f"Qty {row[q_col]} exceeds PDL limit of {val}.",
+                            'Recommended Fix': 'Verify quantity requirements with engineering.', 'Resolved': False
+                        })
+                except: pass
 
     progress_bar.progress(100)
     status_text.text("Validation Complete!")
@@ -203,9 +192,9 @@ def page_dashboard():
     st.markdown('<div class="main-title"><h1>🏠 Dashboard & Trends</h1></div>', unsafe_allow_html=True)
     
     col1, col2, col3 = st.columns(3)
-    with col1: st.markdown("""<div class="info-card"><h3>1. Map & Validate</h3><p>Upload files and map columns dynamically.</p></div>""", unsafe_allow_html=True)
-    with col2: st.markdown("""<div class="info-card"><h3>2. Interactive Fixes</h3><p>Mark issues as resolved in real-time.</p></div>""", unsafe_allow_html=True)
-    with col3: st.markdown("""<div class="info-card"><h3>3. Direct Comms</h3><p>Send SMTP emails directly from the app.</p></div>""", unsafe_allow_html=True)
+    with col1: st.markdown("""<div class="info-card"><h3>1. Upload Data</h3><p>Upload files and let the system auto-detect columns.</p></div>""", unsafe_allow_html=True)
+    with col2: st.markdown("""<div class="info-card"><h3>2. Interactive Fixes</h3><p>Mark issues as resolved in real-time to update charts.</p></div>""", unsafe_allow_html=True)
+    with col3: st.markdown("""<div class="info-card"><h3>3. Communications</h3><p>Generate emails to engineers and executive summaries.</p></div>""", unsafe_allow_html=True)
         
     st.markdown("---")
     st.markdown("### 📈 Historical Risk Burn-down")
@@ -220,7 +209,7 @@ def page_dashboard():
         st.info("No historical data yet. Run a validation to start tracking trends!")
 
 def page_upload():
-    st.markdown('<div class="main-title"><h1>📤 Upload & Map Data</h1></div>', unsafe_allow_html=True)
+    st.markdown('<div class="main-title"><h1>📤 Upload & Validate</h1></div>', unsafe_allow_html=True)
     
     col1, col2 = st.columns(2)
     with col1:
@@ -228,29 +217,22 @@ def page_upload():
         if bom_file:
             st.session_state.bom_df = pd.read_csv(bom_file) if bom_file.name.endswith('.csv') else pd.read_excel(bom_file)
             st.session_state.bom_filename = bom_file.name
+            st.success(f"✅ Loaded: {bom_file.name}")
             
     with col2:
         pdl_file = st.file_uploader("2. Upload PDL Rules", type=["csv", "xlsx"])
         if pdl_file:
             st.session_state.pdl_df = pd.read_csv(pdl_file) if pdl_file.name.endswith('.csv') else pd.read_excel(pdl_file)
             st.session_state.pdl_filename = pdl_file.name
+            st.success(f"✅ Loaded: {pdl_file.name}")
             
     if st.session_state.get('bom_df') is not None:
-        st.markdown("### 🔀 Column Mapping")
-        cols = list(st.session_state.bom_df.columns)
-        
-        c1, c2, c3, c4 = st.columns(4)
-        map_p = c1.selectbox("Part Number Col", cols, index=0)
-        map_f = c2.selectbox("Feature Col", cols, index=1 if len(cols)>1 else 0)
-        map_e = c3.selectbox("Engineer Col", cols + ['None'], index=len(cols))
-        map_q = c4.selectbox("Quantity Col", cols + ['None'], index=len(cols))
-        
-        if st.button("🚀 Run Vectorized Validation", type="primary", use_container_width=True):
-            col_map = {'part': map_p, 'feat': map_f, 'eng': map_e if map_e != 'None' else map_p, 'qty': map_q if map_q != 'None' else map_p}
-            
-            res_df = run_vectorized_validation(st.session_state.bom_df, st.session_state.get('pdl_df'), col_map)
+        st.markdown("---")
+        if st.button("🚀 Run Advanced Validation", type="primary", use_container_width=True):
+            res_df = run_vectorized_validation(st.session_state.bom_df, st.session_state.get('pdl_df'))
             st.session_state.results_df = res_df
-            st.session_state.total_parts = len(st.session_state.bom_df[map_p].unique())
+            p_col, _, _, _ = auto_detect_columns(st.session_state.bom_df)
+            st.session_state.total_parts = len(st.session_state.bom_df[p_col].unique())
             
             # Log to DB
             stats = calculate_stats(res_df, st.session_state.total_parts)
@@ -264,7 +246,7 @@ def page_upload():
         st.session_state.bom_df = pd.DataFrame({
             'Part_No': [f"PN-{i}" for i in range(100)],
             'Feat_Code': np.random.choice(['ENG-V8', 'OBS-NAV', 'INT-LHD', 'INT-RHD', 'SUNROOF', 'WHEEL', None], 100),
-            'Eng_ID': np.random.choice(['john@qr.com', 'mary@qr.com'], 100),
+            'Eng_ID': np.random.choice(['john.smith@quickrelease.co.uk', 'mary.jane@quickrelease.co.uk'], 100),
             'Qty': np.random.randint(1, 6, 100)
         })
         st.session_state.pdl_df = pd.DataFrame({
@@ -277,15 +259,16 @@ def page_upload():
 def page_analytics():
     st.markdown('<div class="main-title"><h1>📊 Interactive Analytics</h1></div>', unsafe_allow_html=True)
     
-    # GUARD CLAUSE: Ensure validation has been run
     if st.session_state.get('results_df') is None:
         st.warning("⚠️ Please go to 'Upload & Validate' and run the validation first.")
         return
-        
-    stats = calculate_stats(st.session_state.results_df, st.session_state.total_parts)
+
+    df = st.session_state.results_df
+    active_df = df[~df['Resolved']].copy()
+    stats = calculate_stats(df, st.session_state.total_parts)
     
+    # --- Top Row: Gauge & Metrics ---
     col1, col2, col3, col4 = st.columns([1.5, 1, 1, 1])
-    
     fig = go.Figure(go.Indicator(
         mode="gauge+number", value=stats['risk_score'], title={'text': "Risk Score", 'font': {'color': 'white'}},
         gauge={'axis': {'range': [0, 100]}, 'bar': {'color': Config.COLORS['primary_red']}, 'bgcolor': Config.COLORS['sidebar_bg']}
@@ -297,20 +280,49 @@ def page_analytics():
     with col3: st.markdown(f'<div class="metric-container"><h3 style="color:{Config.COLORS["orange"]}">{stats["errors"]}</h3><p>Errors</p></div>', unsafe_allow_html=True)
     with col4: st.markdown(f'<div class="metric-container"><h3 style="color:{Config.COLORS["yellow"]}">{stats["warnings"]}</h3><p>Warnings</p></div>', unsafe_allow_html=True)
 
-    st.markdown("### 🛠️ Action Center (Interactive)")
-    st.caption("Check the 'Resolved' box to dynamically update your risk score.")
-    
-    if not st.session_state.results_df.empty:
-        # Interactive Data Editor
-        edited_df = st.data_editor(
-            st.session_state.results_df,
-            column_config={"Resolved": st.column_config.CheckboxColumn("Resolved?", default=False)},
-            disabled=["Part Number", "Feature Code", "Engineer ID", "Severity", "Issue Type", "Message", "Recommended Fix"],
-            use_container_width=True, hide_index=True
-        )
-        st.session_state.results_df = edited_df
+    st.markdown("---")
 
-        # Excel Download
+    # --- Middle Row: Restored Visual Graphs ---
+    if not active_df.empty:
+        c1, c2 = st.columns(2)
+        with c1:
+            st.markdown("### 🚨 Issue Distribution")
+            fig_sun = px.sunburst(active_df, path=['Severity', 'Issue Type'], color='Severity', color_discrete_map=Config.SEVERITY_COLORS)
+            fig_sun.update_traces(textinfo="label+value")
+            fig_sun.update_layout(paper_bgcolor='rgba(0,0,0,0)', plot_bgcolor='rgba(0,0,0,0)', margin=dict(t=0, l=0, r=0, b=0), font=dict(family='Inter', color=Config.COLORS['text_main']))
+            st.plotly_chart(fig_sun, use_container_width=True)
+        with c2:
+            st.markdown("### 🎯 Top Problematic Features")
+            feat_counts = active_df['Feature Code'].value_counts().head(7).reset_index()
+            feat_counts.columns = ['Feature Code', 'Count']
+            fig_bar = px.bar(feat_counts, x='Count', y='Feature Code', orientation='h', text='Count')
+            fig_bar.update_traces(marker_color=Config.COLORS['primary_red'], textposition='outside')
+            fig_bar.update_layout(paper_bgcolor='rgba(0,0,0,0)', plot_bgcolor='rgba(0,0,0,0)', yaxis={'categoryorder':'total ascending'}, margin=dict(t=0, l=0, r=0, b=0), font=dict(family='Inter', color=Config.COLORS['text_main']))
+            st.plotly_chart(fig_bar, use_container_width=True)
+    
+    st.markdown("---")
+    st.markdown("### 🛠️ Action Center (Interactive)")
+    st.caption("Mark issues as **Resolved** in the table below. Charts above will update automatically.")
+    
+    if not df.empty:
+        edited_df = st.data_editor(
+            df,
+            column_config={
+                "Resolved": st.column_config.CheckboxColumn("Resolved?", default=False),
+                "Severity": st.column_config.Column("Severity", width="medium"),
+                "Issue Type": st.column_config.Column("Issue Type", width="medium"),
+                "Message": st.column_config.Column("Message", width="large"),
+                "Recommended Fix": st.column_config.Column("Recommended Fix", width="large"),
+            },
+            disabled=["Part Number", "Feature Code", "Engineer ID", "Severity", "Issue Type", "Message", "Recommended Fix"],
+            use_container_width=True, hide_index=True, height=500
+        )
+        
+        # Real-time update logic
+        if not edited_df.equals(st.session_state.results_df):
+            st.session_state.results_df = edited_df
+            st.rerun()
+
         output = io.BytesIO()
         with pd.ExcelWriter(output, engine='xlsxwriter') as writer:
             edited_df.to_excel(writer, index=False, sheet_name='Validation Results')
@@ -321,7 +333,6 @@ def page_analytics():
 def page_communications():
     st.markdown('<div class="main-title"><h1>📧 Communications</h1></div>', unsafe_allow_html=True)
     
-    # GUARD CLAUSE
     if st.session_state.get('results_df') is None:
         st.warning("⚠️ Please go to 'Upload & Validate' and run the validation first.")
         return
@@ -330,82 +341,116 @@ def page_communications():
     if active_issues.empty:
         st.success("✨ No active issues to communicate!")
         return
-    
-    with st.expander("⚙️ Direct SMTP Configuration (Optional)"):
-        st.info("Configure your SMTP server to send emails directly in the background, bypassing Outlook character limits.")
-        c1, c2 = st.columns(2)
-        smtp_server = c1.text_input("SMTP Server", "smtp.office365.com")
-        smtp_port = c2.number_input("SMTP Port", 587)
-        smtp_user = c1.text_input("Email Address")
-        smtp_pass = c2.text_input("Password", type="password")
         
     st.markdown("### Engineer Queues")
+    # Will now correctly group by Engineer Email (e.g. john.smith@...)
     for eng, group in active_issues.groupby('Engineer ID'):
         if eng == 'Unassigned' or eng == 'None': continue
         
         with st.expander(f"👤 {eng} — {len(group)} Actions"):
             st.dataframe(group[['Severity', 'Part Number', 'Issue Type']], use_container_width=True, hide_index=True)
             
-            body = f"Action required for {len(group)} parts.\r\n\r\n"
+            body = f"Hello,\r\n\r\nAction is required for {len(group)} parts in the latest BoM validation.\r\n\r\n"
             for _, r in group.iterrows():
                 body += f"- {r['Part Number']} ({r['Feature Code']}): {r['Message']}\r\n"
+            body += "\r\nThank you,\r\nBoM Validation Team"
             
             mailto = f"mailto:{eng}?subject=BoM Action Required&body={urllib.parse.quote(body)}"
             
-            col1, col2 = st.columns([1, 3])
-            with col1:
-                st.markdown(f'<a href="{mailto}"><button style="padding:10px; border-radius:5px; background:{Config.COLORS["blue_1"]}; color:white; border:none; width:100%;">Draft in Outlook</button></a>', unsafe_allow_html=True)
-            with col2:
-                if st.button(f"Send Direct via SMTP", key=f"send_{eng}"):
-                    if not smtp_user or not smtp_pass:
-                        st.error("Please configure SMTP settings above first.")
-                    else:
-                        try:
-                            msg = MIMEMultipart()
-                            msg['From'], msg['To'], msg['Subject'] = smtp_user, eng, "BoM Action Required"
-                            msg.attach(MIMEText(body, 'plain'))
-                            server = smtplib.SMTP(smtp_server, smtp_port)
-                            server.starttls()
-                            server.login(smtp_user, smtp_pass)
-                            server.send_message(msg)
-                            server.quit()
-                            st.success(f"Email sent directly to {eng}!")
-                        except Exception as e:
-                            st.error(f"SMTP Error: {e}")
+            btn_html = f"""<a href="{mailto}" style="text-decoration: none;">
+            <button style="background: linear-gradient(135deg, {Config.COLORS['primary_red']} 0%, {Config.COLORS['dark_red']} 100%); color: white; border: none; padding: 10px 20px; border-radius: 8px; font-weight: 600; cursor: pointer; margin-top: 10px; margin-bottom: 10px; font-family: 'Inter', sans-serif;">📨 Draft Email in Outlook</button>
+            </a>"""
+            st.markdown(btn_html, unsafe_allow_html=True)
 
 def page_nightletter():
     st.markdown('<div class="main-title"><h1>🌙 Executive Nightletter</h1></div>', unsafe_allow_html=True)
     
-    # GUARD CLAUSE
     if st.session_state.get('results_df') is None:
         st.warning("⚠️ Please go to 'Upload & Validate' and run the validation first.")
         return
         
     stats = calculate_stats(st.session_state.results_df, st.session_state.total_parts)
     date_str = datetime.now().strftime("%B %d, %Y")
+    bom_name = st.session_state.get('bom_filename', 'Unknown BoM')
     
-    html_content = textwrap.dedent(f"""
-        <html><body style="font-family: Arial, sans-serif; color: #333; padding: 20px;">
-        <h2 style="color: #D7171F; border-bottom: 2px solid #D7171F;">Executive Nightletter - {date_str}</h2>
-        <h3>Key Metrics</h3>
-        <ul>
-            <li><b>Risk Score:</b> {stats['risk_score']}/100</li>
-            <li><b>Parts Evaluated:</b> {stats['total_parts']}</li>
-            <li><b>Total Active Issues:</b> {stats['critical'] + stats['errors'] + stats['warnings']}</li>
-        </ul>
-        <h3>Breakdown</h3>
-        <ul>
-            <li style="color: #D7171F;"><b>Critical:</b> {stats['critical']}</li>
-            <li style="color: #EE4B0F;"><b>Errors:</b> {stats['errors']}</li>
-            <li style="color: #FFA602;"><b>Warnings:</b> {stats['warnings']}</li>
-        </ul>
-        <p><i>Generated by Quick Release_ Validation System</i></p>
-        </body></html>
-    """)
+    # Assess Status
+    if stats['risk_score'] < 20: 
+        status_text, status_color = "🟢 ON TRACK", Config.COLORS['green']
+    elif stats['risk_score'] < 50: 
+        status_text, status_color = "🟡 AT RISK", Config.COLORS['yellow']
+    else: 
+        status_text, status_color = "🔴 CRITICAL", Config.COLORS['primary_red']
+
+    # --- Restored Premium Visual HTML Preview ---
+    html_preview = f"""<div style="background-color: {Config.COLORS['sidebar_bg']}; border: 1px solid rgba(255,255,255,0.1); border-radius: 12px; padding: 2.5rem; margin-bottom: 2rem; box-shadow: 0 10px 30px rgba(0,0,0,0.3);">
+<h2 style="color: {Config.COLORS['text_main']}; border-bottom: 2px solid {Config.COLORS['primary_red']}; padding-bottom: 10px; margin-top: 0;">
+🌙 Executive Nightletter <span style="float: right; color: {Config.COLORS['text_muted']}; font-size: 1rem; font-weight: 400; margin-top: 10px;">{date_str}</span>
+</h2>
+<div style="margin-bottom: 2rem;">
+<p style="margin: 0;"><strong>File Analyzed:</strong> <span style="color: {Config.COLORS['blue_1']};">{bom_name}</span></p>
+<p style="margin: 5px 0 0 0;"><strong>System Status:</strong> <span style="color: {status_color}; font-weight: 600;">{status_text}</span></p>
+</div>
+<div style="display: flex; gap: 20px; margin-bottom: 2rem;">
+<div style="flex: 1; background-color: {Config.COLORS['card_bg']}; padding: 1.5rem; border-radius: 8px; border-top: 4px solid {status_color}; text-align: center;">
+<h4 style="margin: 0; color: {Config.COLORS['text_muted']};">Risk Score</h4>
+<h1 style="margin: 5px 0 0 0; color: {Config.COLORS['text_main']}; font-size: 2.5rem;">{stats['risk_score']}<span style="font-size: 1rem; color: {Config.COLORS['text_muted']};">/100</span></h1>
+</div>
+<div style="flex: 1; background-color: {Config.COLORS['card_bg']}; padding: 1.5rem; border-radius: 8px; border-top: 4px solid {Config.COLORS['blue_1']}; text-align: center;">
+<h4 style="margin: 0; color: {Config.COLORS['text_muted']};">Parts Evaluated</h4>
+<h1 style="margin: 5px 0 0 0; color: {Config.COLORS['text_main']}; font-size: 2.5rem;">{stats['total_parts']}</h1>
+</div>
+<div style="flex: 1; background-color: {Config.COLORS['card_bg']}; padding: 1.5rem; border-radius: 8px; border-top: 4px solid {Config.COLORS['primary_red']}; text-align: center;">
+<h4 style="margin: 0; color: {Config.COLORS['text_muted']};">Active Issues</h4>
+<h1 style="margin: 5px 0 0 0; color: {Config.COLORS['text_main']}; font-size: 2.5rem;">{stats['critical'] + stats['errors'] + stats['warnings']}</h1>
+</div>
+</div>
+<div style="display: flex; gap: 40px;">
+<div style="flex: 1;">
+<h4 style="color: {Config.COLORS['text_muted']}; border-bottom: 1px solid rgba(255,255,255,0.1); padding-bottom: 5px;">🚨 Issue Breakdown</h4>
+<ul style="list-style-type: none; padding-left: 0;">
+<li style="margin-bottom: 5px;"><strong style="color: {Config.COLORS['primary_red']};">CRITICAL:</strong> {stats['critical']}</li>
+<li style="margin-bottom: 5px;"><strong style="color: {Config.COLORS['orange']};">ERRORS:</strong> {stats['errors']}</li>
+<li style="margin-bottom: 5px;"><strong style="color: {Config.COLORS['yellow']};">WARNINGS:</strong> {stats['warnings']}</li>
+</ul>
+</div>
+</div>
+<p style="margin-top: 2rem; font-size: 0.85rem; color: {Config.COLORS['text_muted']}; border-top: 1px solid rgba(255,255,255,0.1); padding-top: 10px;">
+Engineers have been notified via the automated queue system to correct their respective items.<br>
+<em>— Quick Release_ Validation System</em>
+</p>
+</div>"""
+    st.markdown(html_preview, unsafe_allow_html=True)
+
+    # --- Plain Text Payload for Email ---
+    nightletter_body = f"""=========================================================
+          🌙 EXECUTIVE NIGHTLETTER - BoM VALIDATION
+=========================================================
+Date: {date_str}
+File Analyzed: {bom_name}
+Status: {status_text}
+
+📊 KEY METRICS
+---------------------------------------------------------
+• Buildability Risk Score : {stats['risk_score']}/100
+• Total Parts Evaluated   : {stats['total_parts']}
+• Active Issues Detected  : {stats['critical'] + stats['errors'] + stats['warnings']}
+
+🚨 ISSUE BREAKDOWN
+---------------------------------------------------------
+• [CRITICAL] : {stats['critical']}
+• [ERROR]    : {stats['errors']}
+• [WARNING]  : {stats['warnings']}
+
+=========================================================
+Generated by Quick Release_ Validation System
+=========================================================\r\n"""
+
+    mailto_link = f"mailto:management_team@quickrelease.co.uk?subject=Daily BoM Nightletter - {date_str}&body={urllib.parse.quote(nightletter_body)}"
     
-    st.components.v1.html(html_content, height=400, scrolling=True)
-    
-    st.download_button("📥 Download Nightletter as HTML (Print to PDF)", data=html_content, file_name=f"Nightletter_{datetime.now().strftime('%Y%m%d')}.html", mime="text/html")
+    btn_html = f"""<a href="{mailto_link}" style="text-decoration: none;">
+<button style="background: linear-gradient(135deg, {Config.COLORS['green']} 0%, #3A6825 100%); color: white; border: none; padding: 15px 30px; border-radius: 8px; font-weight: 600; font-size: 1.1rem; cursor: pointer; box-shadow: 0 4px 6px rgba(0,0,0,0.3); width: 100%; font-family: 'Inter', sans-serif;">🚀 Send Plain-Text Nightletter via Outlook</button>
+</a>"""
+    st.markdown(btn_html, unsafe_allow_html=True)
 
 # ============================================================================
 # 6. MAIN APP ROUTING (Native Multi-Page)
@@ -417,17 +462,9 @@ def main():
     apply_custom_theme()
     show_logo()
     
-    # Initialize Session State securely to prevent AttributeErrors
-    if "results_df" not in st.session_state:
-        st.session_state.results_df = None
-    if "total_parts" not in st.session_state:
-        st.session_state.total_parts = 0
-    if "bom_df" not in st.session_state:
-        st.session_state.bom_df = None
-    if "pdl_df" not in st.session_state:
-        st.session_state.pdl_df = None
+    if "results_df" not in st.session_state: st.session_state.results_df = None
+    if "total_parts" not in st.session_state: st.session_state.total_parts = 0
 
-    # Native Streamlit Navigation (Streamlit >= 1.36)
     pages = {
         "Core Workflow": [
             st.Page(page_dashboard, title="Dashboard & Trends", icon="🏠"),
