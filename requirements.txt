@@ -5,3 +5,4 @@ plotly
 pypdf
 google-cloud-storage
 google-auth
+openpyxl
