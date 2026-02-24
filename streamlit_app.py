@@ -182,7 +182,7 @@ def run_vectorized_validation(bom_df, pdl_df, col_map):
     return pd.DataFrame(results)
 
 def calculate_stats(results_df, total_parts):
-    if results_df.empty:
+    if results_df is None or results_df.empty:
         return {'critical': 0, 'errors': 0, 'warnings': 0, 'risk_score': 0, 'total_parts': total_parts}
     
     active = results_df[~results_df['Resolved']]
@@ -235,7 +235,7 @@ def page_upload():
             st.session_state.pdl_df = pd.read_csv(pdl_file) if pdl_file.name.endswith('.csv') else pd.read_excel(pdl_file)
             st.session_state.pdl_filename = pdl_file.name
             
-    if 'bom_df' in st.session_state:
+    if st.session_state.get('bom_df') is not None:
         st.markdown("### 🔀 Column Mapping")
         cols = list(st.session_state.bom_df.columns)
         
@@ -256,7 +256,7 @@ def page_upload():
             stats = calculate_stats(res_df, st.session_state.total_parts)
             log_run_to_db(stats['total_parts'], stats['critical'], stats['errors'], stats['warnings'], stats['risk_score'])
             
-            st.success("✅ Validation Complete! Navigate to Analytics to view results.")
+            st.success("✅ Validation Complete! Navigate to 'Action Center' in the sidebar to view results.")
 
     st.markdown("---")
     if st.button("🎲 Load Sample Data & Rules"):
@@ -276,11 +276,12 @@ def page_upload():
 
 def page_analytics():
     st.markdown('<div class="main-title"><h1>📊 Interactive Analytics</h1></div>', unsafe_allow_html=True)
-    if 'results_df' not in st.session_state:
-        st.warning("⚠️ Please run validation first.")
+    
+    # GUARD CLAUSE: Ensure validation has been run
+    if st.session_state.get('results_df') is None:
+        st.warning("⚠️ Please go to 'Upload & Validate' and run the validation first.")
         return
         
-    # Recalculate stats based on interactive editor
     stats = calculate_stats(st.session_state.results_df, st.session_state.total_parts)
     
     col1, col2, col3, col4 = st.columns([1.5, 1, 1, 1])
@@ -299,28 +300,36 @@ def page_analytics():
     st.markdown("### 🛠️ Action Center (Interactive)")
     st.caption("Check the 'Resolved' box to dynamically update your risk score.")
     
-    # Interactive Data Editor
-    edited_df = st.data_editor(
-        st.session_state.results_df,
-        column_config={"Resolved": st.column_config.CheckboxColumn("Resolved?", default=False)},
-        disabled=["Part Number", "Feature Code", "Engineer ID", "Severity", "Issue Type", "Message", "Recommended Fix"],
-        use_container_width=True, hide_index=True
-    )
-    st.session_state.results_df = edited_df
+    if not st.session_state.results_df.empty:
+        # Interactive Data Editor
+        edited_df = st.data_editor(
+            st.session_state.results_df,
+            column_config={"Resolved": st.column_config.CheckboxColumn("Resolved?", default=False)},
+            disabled=["Part Number", "Feature Code", "Engineer ID", "Severity", "Issue Type", "Message", "Recommended Fix"],
+            use_container_width=True, hide_index=True
+        )
+        st.session_state.results_df = edited_df
 
-    # Excel Download
-    output = io.BytesIO()
-    with pd.ExcelWriter(output, engine='xlsxwriter') as writer:
-        edited_df.to_excel(writer, index=False, sheet_name='Validation Results')
-    st.download_button("📥 Download Report (.xlsx)", data=output.getvalue(), file_name="Validation_Report.xlsx", mime="application/vnd.ms-excel")
+        # Excel Download
+        output = io.BytesIO()
+        with pd.ExcelWriter(output, engine='xlsxwriter') as writer:
+            edited_df.to_excel(writer, index=False, sheet_name='Validation Results')
+        st.download_button("📥 Download Report (.xlsx)", data=output.getvalue(), file_name="Validation_Report.xlsx", mime="application/vnd.ms-excel")
+    else:
+        st.success("✨ Zero issues detected! Your BoM is perfectly clean.")
 
 def page_communications():
     st.markdown('<div class="main-title"><h1>📧 Communications</h1></div>', unsafe_allow_html=True)
-    if 'results_df' not in st.session_state:
-        st.warning("⚠️ Please run validation first.")
+    
+    # GUARD CLAUSE
+    if st.session_state.get('results_df') is None:
+        st.warning("⚠️ Please go to 'Upload & Validate' and run the validation first.")
         return
         
     active_issues = st.session_state.results_df[~st.session_state.results_df['Resolved']]
+    if active_issues.empty:
+        st.success("✨ No active issues to communicate!")
+        return
     
     with st.expander("⚙️ Direct SMTP Configuration (Optional)"):
         st.info("Configure your SMTP server to send emails directly in the background, bypassing Outlook character limits.")
@@ -366,8 +375,10 @@ def page_communications():
 
 def page_nightletter():
     st.markdown('<div class="main-title"><h1>🌙 Executive Nightletter</h1></div>', unsafe_allow_html=True)
-    if 'results_df' not in st.session_state:
-        st.warning("⚠️ Please run validation first.")
+    
+    # GUARD CLAUSE
+    if st.session_state.get('results_df') is None:
+        st.warning("⚠️ Please go to 'Upload & Validate' and run the validation first.")
         return
         
     stats = calculate_stats(st.session_state.results_df, st.session_state.total_parts)
@@ -406,10 +417,17 @@ def main():
     apply_custom_theme()
     show_logo()
     
-    # Native Streamlit Navigation (Streamlit >= 1.36)
+    # Initialize Session State securely to prevent AttributeErrors
     if "results_df" not in st.session_state:
-        st.session_state.results_df = pd.DataFrame()
+        st.session_state.results_df = None
+    if "total_parts" not in st.session_state:
+        st.session_state.total_parts = 0
+    if "bom_df" not in st.session_state:
+        st.session_state.bom_df = None
+    if "pdl_df" not in st.session_state:
+        st.session_state.pdl_df = None
 
+    # Native Streamlit Navigation (Streamlit >= 1.36)
     pages = {
         "Core Workflow": [
             st.Page(page_dashboard, title="Dashboard & Trends", icon="🏠"),
