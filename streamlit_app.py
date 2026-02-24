@@ -276,9 +276,9 @@ def create_gauge_chart(score):
             'borderwidth': 2,
             'bordercolor': "gray",
             'steps': [
-                {'range': [0, 50], 'color': 'rgba(173, 18, 18, 0.3)'},
+                {'range': [0, 50], 'color': 'rgba(40, 167, 69, 0.3)'},
                 {'range': [50, 80], 'color': 'rgba(255, 193, 7, 0.3)'},
-                {'range': [80, 100], 'color': 'rgba(40, 167, 69, 0.3)'}],
+                {'range': [80, 100], 'color': 'rgba(173, 18, 18, 0.3)'}],
         }
     ))
     fig.update_layout(paper_bgcolor='rgba(0,0,0,0)', font={'color': Config.COLORS['text']}, height=350, margin=dict(l=20, r=20, t=50, b=20))
