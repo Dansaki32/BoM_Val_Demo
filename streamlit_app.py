@@ -1,6 +1,7 @@
 import streamlit as st
 from pathlib import Path
 import base64
+import pandas as pd
 
 def load_custom_font_and_theme():
     font_path = Path("Styling/Styling/qr_font.ttf")
@@ -92,13 +93,33 @@ st.markdown("<h1 class='qr-accent'>OEM Feature Code Buildability Checker</h1>", 
 
 if page == "Dashboard":
     st.header("Dashboard")
-    st.info("Upload a file to see buildability results.")
+    # Try to load the provided file if it exists
+    file_path = Path("/workspaces/BoM_Val_Demo/FALTTUYY_20241126_Latest.xlsm")
+    if file_path.exists():
+        try:
+            df = pd.read_excel(file_path, engine="openpyxl")
+            st.success(f"Loaded file: {file_path.name}")
+            st.write("**Preview:**")
+            st.dataframe(df.head(20))
+            st.write(f"**Rows:** {df.shape[0]}  |  **Columns:** {df.shape[1]}")
+            st.write(f"**Columns:** {', '.join(df.columns.astype(str).tolist())}")
+        except Exception as e:
+            st.error(f"Error reading file: {e}")
+    else:
+        st.info("Upload a file to see buildability results.")
 elif page == "Upload & Validate":
     st.header("Upload Feature Code File")
-    uploaded_file = st.file_uploader("Upload Feature Code File", type=["csv", "xlsx"])  # Placeholder for file types
+    uploaded_file = st.file_uploader("Upload Feature Code File", type=["csv", "xlsx", "xlsm"])
     if uploaded_file:
-        st.success("File uploaded! (Parsing and validation logic to be implemented)")
-        # TODO: Parse file, validate, and display dashboard
+        try:
+            df = pd.read_excel(uploaded_file, engine="openpyxl")
+            st.success("File uploaded and parsed!")
+            st.write("**Preview:**")
+            st.dataframe(df.head(20))
+            st.write(f"**Rows:** {df.shape[0]}  |  **Columns:** {df.shape[1]}")
+            st.write(f"**Columns:** {', '.join(df.columns.astype(str).tolist())}")
+        except Exception as e:
+            st.error(f"Error reading file: {e}")
     else:
         st.info("Please upload a feature code file to begin.")
 elif page == "About":
@@ -111,9 +132,4 @@ elif page == "About":
         - Review errors and build problems
         - Drill down into each part for details
     """)
-import streamlit as st
 
-st.title("🎈 My new app")
-st.write(
-    "Let's start building! For help and inspiration, head over to [docs.streamlit.io](https://docs.streamlit.io/)."
-)
