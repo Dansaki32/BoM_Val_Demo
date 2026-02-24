@@ -356,31 +356,75 @@ def page_upload_validate():
     if st.session_state.get('run_complete'):
         st.success("Validation Complete! Navigate to Analytics to view insights and recommended fixes.")
 
-    # --- NEW: GENERATE SAMPLE DATA SECTION ---
+    # --- MASSIVELY UPGRADED SAMPLE DATA GENERATOR ---
     st.markdown("---")
     st.markdown("### 🧪 Or Try Sample Data")
-    st.markdown("Generate a correlated BoM and PDL dataset intentionally seeded with errors (Obsolete parts, Missing dependencies, Mutually exclusive features) to see how the Analytics engine works.")
+    st.markdown("Generate a large, realistic BoM (250 parts) intentionally seeded with a distribution of PDL errors to demonstrate the Analytics engine.")
     
-    if st.button("🎲 Generate Sample Workspace", use_container_width=True):
-        # Create Sample BoM intentionally triggering our rules
-        bom_data = {
-            'Part_Number': ['PN-1001', 'PN-1002', 'PN-1003', 'PN-1004', 'PN-1005', 'PN-1006', 'PN-1007', 'PN-1008'],
-            'Feature_Code': ['ENG-V8', None, 'OBS-NAV-01', 'INT-LHD', 'INT-RHD', 'SUNROOF-PAN', 'WHEEL-ALLOY', 'SEAT-LEA'],
-            'Description': ['Engine Assembly', 'Chassis Bracket', 'Nav Module', 'Dashboard LHD', 'Steering Rack RHD', 'Sunroof Glass', 'Alloy Wheel', 'Leather Seat'],
-            'Quantity': [1, 2, 1, 1, 1, 1, 5, 2] # Quantity 5 will trigger a warning
-        }
-        st.session_state.bom_df = pd.DataFrame(bom_data)
-        st.session_state.bom_filename = "Sample_BoM_Data.csv"
+    if st.button("🎲 Generate Large Sample Workspace", use_container_width=True):
+        np.random.seed(42) # Ensure reproducible but random-looking results
         
-        # Create Sample PDL Guidance
-        pdl_data = {
-            'Feature_Code': ['ENG-V8', 'OBS-NAV-01', 'INT-LHD', 'INT-RHD', 'SUNROOF-PAN', 'WHEEL-ALLOY', 'SEAT-LEA'],
-            'Status': ['Active', 'Obsolete', 'Active', 'Active', 'Active', 'Active', 'Active'],
-            'Rule_Type': ['None', 'Superseded', 'Mutually Exclusive', 'Mutually Exclusive', 'Prerequisite', 'Quantity Limit', 'None'],
-            'Constraint': ['None', 'Use NAV-02', 'Conflicts with RHD', 'Conflicts with LHD', 'Requires ROOF-PANEL', 'Max Qty 4', 'None']
-        }
-        st.session_state.pdl_df = pd.DataFrame(pdl_data)
-        st.session_state.pdl_filename = "Sample_PDL_Master.csv"
+        num_parts = 250
+        part_numbers = [f"PN-F{10000 + i}" for i in range(num_parts)]
+        
+        # Valid features that don't trigger any rules
+        valid_features = ['ENG-V8', 'TRANS-AUTO', 'SEAT-LEA', 'WHEEL-18', 'NAV-02', 'AUDIO-PREM', 'LIGHT-LED', 'TRIM-CHROME', 'SUSP-SPORT']
+        
+        feature_codes = []
+        quantities = []
+        descriptions = []
+        
+        # Generate 250 parts with a 75% valid / 25% error distribution
+        for i in range(num_parts):
+            rand_val = np.random.random()
+            
+            if rand_val < 0.75:
+                # 75% Valid Parts
+                feature_codes.append(np.random.choice(valid_features))
+                quantities.append(np.random.randint(1, 4))
+                descriptions.append("Standard Production Component")
+            elif rand_val < 0.80:
+                # 5% Obsolete (Critical)
+                feature_codes.append('OBS-NAV-01')
+                quantities.append(1)
+                descriptions.append("Legacy Navigation Module")
+            elif rand_val < 0.85:
+                # 5% Missing Data (Error)
+                feature_codes.append(None)
+                quantities.append(1)
+                descriptions.append("Unassigned Bracket")
+            elif rand_val < 0.90:
+                # 5% Mutually Exclusive (Critical) - Mix of LHD and RHD
+                feature_codes.append(np.random.choice(['INT-LHD', 'INT-RHD']))
+                quantities.append(1)
+                descriptions.append("Directional Interior Trim")
+            elif rand_val < 0.95:
+                # 5% Missing Dependency (Error) - Sunroof without Roof
+                feature_codes.append('SUNROOF-PAN')
+                quantities.append(1)
+                descriptions.append("Panoramic Sunroof Glass")
+            else:
+                # 5% Quantity Warning
+                feature_codes.append('WHEEL-18')
+                quantities.append(np.random.randint(5, 12)) # Triggers > 4 warning
+                descriptions.append("Alloy Wheel")
+                
+        st.session_state.bom_df = pd.DataFrame({
+            'Part_Number': part_numbers,
+            'Feature_Code': feature_codes,
+            'Description': descriptions,
+            'Quantity': quantities
+        })
+        st.session_state.bom_filename = "Large_Sample_BoM_Data.csv"
+        
+        # Create corresponding PDL Rules DataFrame
+        st.session_state.pdl_df = pd.DataFrame({
+            'Feature_Code': ['ENG-V8', 'OBS-NAV-01', 'INT-LHD', 'INT-RHD', 'SUNROOF-PAN', 'WHEEL-18'],
+            'Status': ['Active', 'Obsolete', 'Active', 'Active', 'Active', 'Active'],
+            'Rule_Type': ['None', 'Superseded', 'Mutually Exclusive', 'Mutually Exclusive', 'Prerequisite', 'Quantity Limit'],
+            'Constraint': ['None', 'Use NAV-02', 'Conflicts with RHD', 'Conflicts with LHD', 'Requires ROOF-PANEL', 'Max Qty 4']
+        })
+        st.session_state.pdl_filename = "Master_PDL_Rules.csv"
         
         # Clear old results to force a fresh run
         if 'validation_results' in st.session_state: del st.session_state.validation_results
