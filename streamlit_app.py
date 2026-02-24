@@ -71,7 +71,6 @@ def apply_custom_theme():
         @import url('https://fonts.googleapis.com/css2?family=Inter:wght@300;400;600;800&family=JetBrains+Mono:wght@400;600&display=swap');
         
         /* 1. GRADIENT MESH BACKGROUND */
-        /* This adds subtle glowing orbs in the corners for the glass to blur */
         .stApp {{ 
             background-color: {c['main_bg']} !important; 
             background-image: 
@@ -90,12 +89,12 @@ def apply_custom_theme():
         
         /* 2. THE GLASSMORPHISM CARD */
         .glass-card {{
-            background: rgba(42, 43, 46, 0.3) !important; /* Highly transparent */
-            backdrop-filter: blur(20px) !important;       /* Heavy blur */
+            background: rgba(42, 43, 46, 0.3) !important; 
+            backdrop-filter: blur(20px) !important;       
             -webkit-backdrop-filter: blur(20px) !important;
-            border: 1px solid rgba(255, 255, 255, 0.08) !important; /* Frosty edge */
-            border-top: 1px solid rgba(255, 255, 255, 0.15) !important; /* Lighting from above */
-            box-shadow: 0 8px 32px rgba(0, 0, 0, 0.3) !important; /* Deep drop shadow */
+            border: 1px solid rgba(255, 255, 255, 0.08) !important; 
+            border-top: 1px solid rgba(255, 255, 255, 0.15) !important; 
+            box-shadow: 0 8px 32px rgba(0, 0, 0, 0.3) !important; 
             border-radius: 16px !important;
             padding: 1.5rem;
             transition: all 0.4s cubic-bezier(0.25, 1, 0.5, 1);
@@ -103,10 +102,10 @@ def apply_custom_theme():
         
         /* 3. FLUID HOVER PHYSICS */
         .glass-card:hover {{
-            transform: translateY(-5px); /* Lifts up */
-            box-shadow: 0 15px 45px rgba(0, 0, 0, 0.5) !important; /* Shadow expands */
+            transform: translateY(-5px); 
+            box-shadow: 0 15px 45px rgba(0, 0, 0, 0.5) !important; 
             border: 1px solid rgba(255, 255, 255, 0.15) !important;
-            background: rgba(54, 55, 56, 0.4) !important; /* Gets slightly brighter */
+            background: rgba(54, 55, 56, 0.4) !important; 
         }}
 
         /* Advanced Metric Styling */
@@ -141,7 +140,7 @@ def apply_custom_theme():
             box-shadow: 0 8px 20px rgba(215, 23, 31, 0.5);
         }}
 
-        /* Sidebar - Also made slightly transparent */
+        /* Sidebar */
         section[data-testid="stSidebar"] {{ 
             background-color: rgba(18, 18, 19, 0.85) !important; 
             backdrop-filter: blur(10px) !important;
@@ -159,7 +158,6 @@ def apply_custom_theme():
     """)
     st.markdown(theme_css, unsafe_allow_html=True)
 
-
 def show_logo():
     if LOGO_PATH.exists():
         st.sidebar.image(str(LOGO_PATH), use_container_width=True)
@@ -167,7 +165,6 @@ def show_logo():
         st.sidebar.markdown(f"<h2 style='text-align: center; color: {Config.COLORS['primary_red']}; font-weight: 800; letter-spacing: -0.5px;'>QUICK RELEASE_</h2>", unsafe_allow_html=True)
 
 def show_empty_state(title, message, icon="📂"):
-    """Beautiful context-aware empty state"""
     html = f"""
     <div style="text-align: center; padding: 5rem 2rem; background: rgba(255,255,255,0.02); border-radius: 20px; border: 1px dashed rgba(255,255,255,0.1); margin: 2rem 0; backdrop-filter: blur(10px);">
         <div style="font-size: 4rem; margin-bottom: 1rem; opacity: 0.7;">{icon}</div>
@@ -196,7 +193,6 @@ def run_vectorized_validation(bom_df, pdl_df):
     progress_bar = st.progress(0)
     status_placeholder = st.empty()
     
-    # 1. Check Missing Features
     status_placeholder.markdown("<p class='pulse-text'>⚡ Scanning for missing data...</p>", unsafe_allow_html=True)
     if f_col:
         missing_mask = bom_df[f_col].isna() | (bom_df[f_col].astype(str).str.strip() == '') | (bom_df[f_col].astype(str).str.lower() == 'none')
@@ -210,7 +206,6 @@ def run_vectorized_validation(bom_df, pdl_df):
             })
     progress_bar.progress(25)
     
-    # 2. Process PDL Rules Dynamically
     if pdl_df is not None and not pdl_df.empty and 'Rule_Type' in pdl_df.columns and f_col:
         valid_bom = bom_df[~missing_mask].copy() if f_col else bom_df.copy()
         valid_bom[f_col] = valid_bom[f_col].astype(str)
@@ -286,7 +281,7 @@ def page_dashboard():
     col1, col2, col3 = st.columns(3)
     with col1: st.markdown("""<div class="glass-card"><h3>1. Upload Data</h3><p style="color:#A6A8AA;">Drop files and let the system auto-detect columns.</p></div>""", unsafe_allow_html=True)
     with col2: st.markdown("""<div class="glass-card"><h3>2. Interactive Fixes</h3><p style="color:#A6A8AA;">Mark issues as resolved to update charts instantly.</p></div>""", unsafe_allow_html=True)
-    with col3: st.markdown("""<div class="glass-card"><h3>3. Communications</h3><p style="color:#A6A8AA;">Generate emails to engineers and executive summaries.</p></div>""", unsafe_allow_html=True)
+    with col3: st.markdown("""<div class="glass-card"><h3>3. Chat Assistant</h3><p style="color:#A6A8AA;">Interrogate your data using natural language.</p></div>""", unsafe_allow_html=True)
         
     st.markdown("<br><br>", unsafe_allow_html=True)
     st.markdown("### 📈 Historical Risk Burn-down")
@@ -366,9 +361,7 @@ def page_analytics():
     active_df = df[~df['Resolved']].copy()
     stats = calculate_stats(df, st.session_state.total_parts)
     
-    # --- Top Row: Gauge & Metrics (Glassmorphism) ---
     col1, col2, col3, col4 = st.columns([1.5, 1, 1, 1])
-    
     fig = go.Figure(go.Indicator(
         mode="gauge+number", value=stats['risk_score'],
         gauge={'axis': {'range': [0, 100], 'visible': False}, 'bar': {'color': Config.COLORS['primary_red']}, 'bgcolor': 'rgba(255,255,255,0.05)'}
@@ -385,7 +378,6 @@ def page_analytics():
 
     st.markdown("<br>", unsafe_allow_html=True)
 
-    # --- Middle Row: Naked Charts ---
     if not active_df.empty:
         c1, c2 = st.columns(2)
         with c1:
@@ -417,7 +409,6 @@ def page_analytics():
             st.download_button("📥 Download Report", data=output.getvalue(), file_name="Validation_Report.xlsx", mime="application/vnd.ms-excel", use_container_width=True)
     
     if not df.empty:
-        # Applying Monospace styling to specific columns via Column Config
         edited_df = st.data_editor(
             df,
             column_config={
@@ -437,6 +428,91 @@ def page_analytics():
             st.rerun()
     else:
         show_empty_state("Zero Issues Detected", "Your BoM is perfectly clean. No actions required.", "✨")
+
+# ============================================================================
+# NEW: CHATBOT AI ASSISTANT
+# ============================================================================
+
+def get_chatbot_response(prompt, df):
+    """
+    A lightweight, rule-based NLP engine that queries the Pandas dataframe.
+    NOTE: To upgrade to true Generative AI, you can replace this logic with:
+    
+    from langchain.agents import create_pandas_dataframe_agent
+    from langchain.chat_models import ChatOpenAI
+    agent = create_pandas_dataframe_agent(ChatOpenAI(temperature=0), df, verbose=True)
+    return agent.run(prompt)
+    """
+    p = prompt.lower()
+    active_df = df[~df['Resolved']] if not df.empty else df
+    
+    if df.empty:
+        return "I don't have any validation data to analyze yet. Please upload a BoM first!"
+        
+    if "summary" in p or "status" in p:
+        stats = calculate_stats(df, st.session_state.total_parts)
+        return f"**Current Status:**\n- Risk Score: **{stats['risk_score']}/100**\n- Critical Issues: **{stats['critical']}**\n- Total Active Issues: **{len(active_df)}**"
+        
+    if "critical" in p:
+        crit_df = active_df[active_df['Severity'] == '🔴 CRITICAL']
+        if crit_df.empty: return "Great news! There are no critical issues right now."
+        top_crit = crit_df['Feature Code'].value_counts().index[0]
+        return f"There are **{len(crit_df)}** critical issues unresolved. The most frequent critical feature is `{top_crit}`."
+        
+    if "engineer" in p or "who" in p:
+        eng_counts = active_df[active_df['Engineer ID'] != 'Unassigned']['Engineer ID'].value_counts()
+        if eng_counts.empty: return "All issues are currently unassigned."
+        top_eng = eng_counts.index[0]
+        return f"The engineer with the most pending actions is **{top_eng}** with {eng_counts.iloc[0]} issues."
+        
+    if "feature" in p or "part" in p or "problem" in p:
+        feat_counts = active_df['Feature Code'].value_counts()
+        if feat_counts.empty: return "No problematic features found!"
+        return f"The most problematic feature code is `{feat_counts.index[0]}` causing {feat_counts.iloc[0]} issues."
+        
+    if "resolved" in p or "fixed" in p:
+        res_count = len(df[df['Resolved']])
+        return f"Your team has successfully resolved **{res_count}** issues so far!"
+
+    return "I am a lightweight data assistant. Try asking me:\n- *'Give me a summary'* \n- *'How many critical issues?'*\n- *'Who has the most work?'*\n- *'What is the most problematic feature?'*"
+
+def page_chatbot():
+    st.markdown('<h1 style="margin-bottom: 1rem;">💬 Data Assistant</h1>', unsafe_allow_html=True)
+    st.caption("Ask questions about your BoM validation data using natural language.")
+    
+    if st.session_state.get('results_df') is None:
+        show_empty_state("No Data Available", "Please navigate to the Upload & Validate page to process your BoM before chatting.", "🤖")
+        return
+
+    # Initialize Chat History
+    if "messages" not in st.session_state:
+        st.session_state.messages = [
+            {"role": "assistant", "content": "Hello! I'm your BoM Data Assistant. I've analyzed your latest upload. Ask me about critical issues, specific engineers, or problematic features!"}
+        ]
+
+    # Render Chat History (styled beautifully by Streamlit natively)
+    for message in st.session_state.messages:
+        with st.chat_message(message["role"]):
+            st.markdown(message["content"])
+
+    # Chat Input
+    if prompt := st.chat_input("Ask a question about your data..."):
+        # 1. Add user message to state and UI
+        st.session_state.messages.append({"role": "user", "content": prompt})
+        with st.chat_message("user"):
+            st.markdown(prompt)
+
+        # 2. Generate and display assistant response
+        response = get_chatbot_response(prompt, st.session_state.results_df)
+        with st.chat_message("assistant"):
+            st.markdown(response)
+        
+        # 3. Save assistant response to state
+        st.session_state.messages.append({"role": "assistant", "content": response})
+
+# ============================================================================
+# 6. COMMUNICATIONS & NIGHTLETTER
+# ============================================================================
 
 def page_communications():
     st.markdown('<h1 style="margin-bottom: 2rem;">📧 Communications</h1>', unsafe_allow_html=True)
@@ -483,7 +559,6 @@ def page_nightletter():
     elif stats['risk_score'] < 50: status_text, status_color = "🟡 AT RISK", Config.COLORS['yellow']
     else: status_text, status_color = "🔴 CRITICAL", Config.COLORS['primary_red']
 
-    # --- Premium Visual HTML Preview ---
     html_preview = f"""<div class="glass-card" style="margin-bottom: 2rem;">
 <h2 style="color: {Config.COLORS['text_main']}; border-bottom: 1px solid rgba(255,255,255,0.1); padding-bottom: 15px; margin-top: 0; font-weight: 800; letter-spacing: -0.5px;">
 🌙 Executive Nightletter <span style="float: right; color: {Config.COLORS['text_muted']}; font-size: 1rem; font-weight: 400; margin-top: 10px;">{date_str}</span>
@@ -517,7 +592,6 @@ def page_nightletter():
 </div>"""
     st.markdown(html_preview, unsafe_allow_html=True)
 
-    # --- Plain Text Payload for Email ---
     nightletter_body = f"""=========================================================
           🌙 EXECUTIVE NIGHTLETTER - BoM VALIDATION
 =========================================================
@@ -543,13 +617,12 @@ Generated by Quick Release_ Validation System
 
     mailto_link = f"mailto:management_team@quickrelease.co.uk?subject=Daily BoM Nightletter - {date_str}&body={urllib.parse.quote(nightletter_body)}"
     
-    btn_html = f"""<a href="{mailto_link}" style="text-decoration: none;">
+    st.markdown(f"""<a href="{mailto_link}" style="text-decoration: none;">
 <button style="background: linear-gradient(135deg, {Config.COLORS['green']} 0%, #3A6825 100%); color: white; border: none; padding: 15px 30px; border-radius: 8px; font-weight: 600; font-size: 1.1rem; cursor: pointer; box-shadow: 0 4px 6px rgba(0,0,0,0.3); width: 100%; font-family: 'Inter', sans-serif;">🚀 Send Plain-Text Nightletter via Outlook</button>
-</a>"""
-    st.markdown(btn_html, unsafe_allow_html=True)
+</a>""", unsafe_allow_html=True)
 
 # ============================================================================
-# 6. MAIN APP ROUTING (Native Multi-Page)
+# 7. MAIN APP ROUTING
 # ============================================================================
 
 def main():
@@ -565,7 +638,8 @@ def main():
         "Core Workflow": [
             st.Page(page_dashboard, title="Dashboard & Trends", icon="🏠"),
             st.Page(page_upload, title="Upload & Validate", icon="📤"),
-            st.Page(page_analytics, title="Action Center", icon="📊")
+            st.Page(page_analytics, title="Action Center", icon="📊"),
+            st.Page(page_chatbot, title="Data Assistant", icon="💬")
         ],
         "Communications": [
             st.Page(page_communications, title="Engineer Emails", icon="📧"),
