@@ -8,17 +8,21 @@ import io
 from datetime import datetime
 import plotly.express as px
 import plotly.graph_objects as go
+import os
 
 # ============================================================================
 # CONFIGURATION & CONSTANTS
 # ============================================================================
 
+# Dynamically get the absolute path to the directory containing this script
+BASE_DIR = Path(__file__).parent.absolute()
+
 class Config:
-    """Centralized configuration"""
-    FONT_REGULAR_PATH = Path("Styling/Styling/Dolce Vita (1).ttf")
-    FONT_BOLD_PATH = Path("Styling/Styling/Dolce Vita Heavy Bold (1).ttf")
-    FONT_LIGHT_PATH = Path("Styling/Styling/Dolce Vita Light (1).ttf")
-    LOGO_PATH = Path("Styling/Styling/logo.png")
+    """Centralized configuration with robust absolute paths"""
+    FONT_REGULAR_PATH = BASE_DIR / "Styling" / "Styling" / "Dolce Vita (1).ttf"
+    FONT_BOLD_PATH = BASE_DIR / "Styling" / "Styling" / "Dolce Vita Heavy Bold (1).ttf"
+    FONT_LIGHT_PATH = BASE_DIR / "Styling" / "Styling" / "Dolce Vita Light (1).ttf"
+    LOGO_PATH = BASE_DIR / "Styling" / "Styling" / "logo.png"
     
     # QuickRelease.co.uk inspired color scheme
     COLORS = {
@@ -54,20 +58,23 @@ def load_custom_font() -> str:
         try:
             with open(Config.FONT_REGULAR_PATH, "rb") as f:
                 b64_font = base64.b64encode(f.read()).decode()
-            css += f"@font-face {{ font-family: 'Dolce Vita'; src: url(data:font/ttf;base64,{b64_font}) format('truetype'); font-weight: normal; font-style: normal; }}"
-        except Exception: pass
+            css += f"@font-face {{ font-family: 'DolceVita'; src: url(data:font/ttf;base64,{b64_font}) format('truetype'); font-weight: normal; font-style: normal; }}"
+        except Exception as e: print(f"Font load error: {e}")
+        
     if Config.FONT_BOLD_PATH.exists():
         try:
             with open(Config.FONT_BOLD_PATH, "rb") as f:
                 b64_font_bold = base64.b64encode(f.read()).decode()
-            css += f"@font-face {{ font-family: 'Dolce Vita'; src: url(data:font/ttf;base64,{b64_font_bold}) format('truetype'); font-weight: bold; font-style: normal; }}"
-        except Exception: pass
+            css += f"@font-face {{ font-family: 'DolceVita'; src: url(data:font/ttf;base64,{b64_font_bold}) format('truetype'); font-weight: bold; font-style: normal; }}"
+        except Exception as e: print(f"Font load error: {e}")
+        
     if Config.FONT_LIGHT_PATH.exists():
         try:
             with open(Config.FONT_LIGHT_PATH, "rb") as f:
                 b64_font_light = base64.b64encode(f.read()).decode()
-            css += f"@font-face {{ font-family: 'Dolce Vita'; src: url(data:font/ttf;base64,{b64_font_light}) format('truetype'); font-weight: 300; font-style: normal; }}"
-        except Exception: pass
+            css += f"@font-face {{ font-family: 'DolceVita'; src: url(data:font/ttf;base64,{b64_font_light}) format('truetype'); font-weight: 300; font-style: normal; }}"
+        except Exception as e: print(f"Font load error: {e}")
+        
     return css
 
 def apply_custom_theme():
@@ -77,20 +84,23 @@ def apply_custom_theme():
     theme_css = f"""
         <style>
         {font_css}
-        @import url('https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap');
+        
+        /* Force font on EVERYTHING to override Streamlit defaults */
+        * {{
+            font-family: 'DolceVita', 'Inter', sans-serif !important;
+        }}
         
         html, body, [class*='css'], .stApp {{
             background-color: {c['background']} !important;
             color: {c['text']} !important;
-            font-family: 'Dolce Vita', 'Inter', sans-serif !important;
         }}
         
-        p, span, div, label, .stMarkdown {{ color: {c['text']} !important; font-family: 'Dolce Vita', 'Inter', sans-serif !important; }}
-        h1, h2, h3, h4, h5, h6 {{ color: {c['text']} !important; font-weight: bold !important; font-family: 'Dolce Vita', 'Inter', sans-serif !important; }}
+        p, span, div, label, .stMarkdown {{ color: {c['text']} !important; }}
+        h1, h2, h3, h4, h5, h6 {{ color: {c['text']} !important; font-weight: bold !important; }}
         
         .main-title {{ background: linear-gradient(135deg, {c['primary']} 0%, {c['secondary']} 100%); padding: 2rem; border-radius: 12px; margin-bottom: 2rem; box-shadow: 0 4px 6px rgba(0, 0, 0, 0.3); }}
         
-        .stButton>button {{ background: linear-gradient(135deg, {c['primary']} 0%, {c['secondary']} 100%); color: {c['text']} !important; border-radius: 8px; border: none; font-weight: bold; padding: 0.75rem 1.5rem; transition: all 0.3s ease; font-family: 'Dolce Vita', sans-serif !important; }}
+        .stButton>button {{ background: linear-gradient(135deg, {c['primary']} 0%, {c['secondary']} 100%); color: {c['text']} !important; border-radius: 8px; border: none; font-weight: bold; padding: 0.75rem 1.5rem; transition: all 0.3s ease; }}
         .stButton>button:hover {{ transform: translateY(-2px); box-shadow: 0 6px 12px rgba(173, 18, 18, 0.4); }}
         
         section[data-testid="stSidebar"] {{ background-color: {c['sidebar_bg']} !important; border-right: 2px solid {c['primary']}; }}
@@ -107,7 +117,7 @@ def apply_custom_theme():
         .metric-container {{ background-color: {c['card_bg']}; padding: 1.5rem; border-radius: 12px; box-shadow: 0 4px 6px rgba(0, 0, 0, 0.2); border: 2px solid transparent; transition: all 0.3s ease; text-align: center; }}
         .metric-container:hover {{ border-color: {c['highlight']}; transform: translateY(-2px); }}
         
-        [data-testid="stMetricValue"] {{ color: {c['highlight']} !important; font-family: 'Dolce Vita', sans-serif !important; font-weight: bold !important; font-size: 2.5rem !important; }}
+        [data-testid="stMetricValue"] {{ color: {c['highlight']} !important; font-weight: bold !important; font-size: 2.5rem !important; }}
         [data-testid="stMetricLabel"] {{ color: {c['text_muted']} !important; font-size: 1.1rem !important; }}
         
         /* Scrollbar */
@@ -122,10 +132,13 @@ def apply_custom_theme():
 def show_logo():
     if Config.LOGO_PATH.exists():
         try:
-            st.sidebar.image(str(Config.LOGO_PATH), use_column_width=True)
-        except Exception:
-            st.sidebar.markdown("<h2 style='text-align: center; color: #FF81AA;'>🔧 Feature Validator</h2>", unsafe_allow_html=True)
+            # Use string representation of absolute path
+            st.sidebar.image(str(Config.LOGO_PATH), use_container_width=True)
+        except Exception as e:
+            st.sidebar.error(f"Error loading logo: {e}")
     else:
+        # Debug warning to help you locate it if it's still missing
+        st.sidebar.warning(f"Logo missing. Looked in:\n{Config.LOGO_PATH}")
         st.sidebar.markdown("<h2 style='text-align: center; color: #FF81AA;'>🔧 Feature Validator</h2>", unsafe_allow_html=True)
 
 # ============================================================================
@@ -157,15 +170,6 @@ class ValidationResult:
 # DATA HANDLING & ADVANCED VALIDATION
 # ============================================================================
 
-@st.cache_data
-def load_dataframe(file_path: Path) -> Optional[pd.DataFrame]:
-    if not file_path.exists(): return None
-    try:
-        if file_path.suffix in ['.xlsx', '.xlsm']: return pd.read_excel(file_path, engine="openpyxl")
-        elif file_path.suffix == '.csv': return pd.read_csv(file_path)
-    except Exception as e: st.error(f"Error loading file: {e}")
-    return None
-
 def load_uploaded_file(uploaded_file) -> Optional[pd.DataFrame]:
     try:
         if uploaded_file.name.endswith('.csv'): return pd.read_csv(uploaded_file)
@@ -189,12 +193,10 @@ def validate_against_pdl(bom_df: pd.DataFrame, pdl_df: Optional[pd.DataFrame]) -
     if bom_df.empty:
         return results, stats
         
-    # Standardize column names for checking
-    bom_cols = [c.lower() for c in bom_df.columns]
     part_col = 'Part_Number' if 'Part_Number' in bom_df.columns else bom_df.columns[0]
     feat_col = 'Feature_Code' if 'Feature_Code' in bom_df.columns else (bom_df.columns[1] if len(bom_df.columns)>1 else None)
     
-    # 1. Base BoM Validation
+    # Base BoM Validation
     for idx, row in bom_df.iterrows():
         part_num = str(row.get(part_col, f'Row {idx}'))
         feat_code = str(row.get(feat_col, ''))
@@ -208,12 +210,8 @@ def validate_against_pdl(bom_df: pd.DataFrame, pdl_df: Optional[pd.DataFrame]) -
             ))
             stats['errors'] += 1
             
-    # 2. PDL Cross-Reference Validation (If PDL is provided)
+    # PDL Cross-Reference Validation
     if pdl_df is not None and not pdl_df.empty and feat_col:
-        # Simulate PDL rule extraction (Assuming PDL has Feature, Rule_Type, Target, Action)
-        # For demonstration, we will simulate matching logic based on common OEM PDL scenarios
-        
-        # Get list of all unique features in the build
         build_features = bom_df[feat_col].dropna().astype(str).unique()
         
         for idx, row in bom_df.iterrows():
@@ -222,7 +220,6 @@ def validate_against_pdl(bom_df: pd.DataFrame, pdl_df: Optional[pd.DataFrame]) -
             
             if not feat_code: continue
             
-            # Simulate checking PDL for obsolescence
             if 'OBS' in feat_code.upper() or 'OLD' in feat_code.upper():
                 results.append(ValidationResult(
                     part_num, feat_code, 'CRITICAL', 'Obsolete Feature',
@@ -231,7 +228,6 @@ def validate_against_pdl(bom_df: pd.DataFrame, pdl_df: Optional[pd.DataFrame]) -
                 ))
                 stats['critical'] += 1
                 
-            # Simulate mutually exclusive check (e.g., LHD and RHD on same part/build)
             if 'LHD' in feat_code and any('RHD' in f for f in build_features):
                 results.append(ValidationResult(
                     part_num, feat_code, 'CRITICAL', 'Mutually Exclusive',
@@ -240,7 +236,6 @@ def validate_against_pdl(bom_df: pd.DataFrame, pdl_df: Optional[pd.DataFrame]) -
                 ))
                 stats['critical'] += 1
                 
-            # Simulate missing dependency (e.g., Sunroof requires specific roof panel)
             if 'SUNROOF' in feat_code.upper() and not any('ROOF' in f.upper() for f in build_features):
                 results.append(ValidationResult(
                     part_num, feat_code, 'ERROR', 'Missing Dependency',
@@ -249,7 +244,6 @@ def validate_against_pdl(bom_df: pd.DataFrame, pdl_df: Optional[pd.DataFrame]) -
                 ))
                 stats['errors'] += 1
 
-            # Simulate quantity/buildability warnings
             qty = row.get('Quantity', 1)
             try:
                 if float(qty) > 4:
@@ -273,7 +267,6 @@ def validate_against_pdl(bom_df: pd.DataFrame, pdl_df: Optional[pd.DataFrame]) -
 # ============================================================================
 
 def create_gauge_chart(score):
-    """Create a Plotly gauge chart for Health Score"""
     color = Config.COLORS['success'] if score >= 80 else (Config.COLORS['warning'] if score >= 50 else Config.COLORS['primary'])
     
     fig = go.Figure(go.Indicator(
@@ -296,17 +289,14 @@ def create_gauge_chart(score):
     return fig
 
 def display_action_center(results: List[ValidationResult]):
-    """Display the Recommended Fixes Action Center"""
     st.markdown("### 🛠️ Action Center: Recommended Fixes")
     
     if not results:
         st.markdown('<div class="success-card"><h3>🎉 Zero Issues Detected</h3><p>Your BoM fully complies with the PDL guidance. No actions required.</p></div>', unsafe_allow_html=True)
         return
 
-    # Convert to DataFrame for easier display
     df_results = pd.DataFrame([r.to_dict() for r in results])
     
-    # Filter controls
     col1, col2 = st.columns([1, 3])
     with col1:
         sev_filter = st.selectbox("Prioritize By", ["All", "CRITICAL", "ERROR", "WARNING"])
@@ -314,7 +304,6 @@ def display_action_center(results: List[ValidationResult]):
     if sev_filter != "All":
         df_results = df_results[df_results['Severity'] == sev_filter]
 
-    # Display actionable cards
     for idx, row in df_results.iterrows():
         color = Config.SEVERITY_COLORS.get(row['Severity'], '#FFF')
         st.markdown(f"""
@@ -381,25 +370,31 @@ def page_analytics():
     results = st.session_state.validation_results
     stats = st.session_state.validation_stats
     
+    # SAFE GETTERS to prevent KeyErrors from old sessions
+    health_score = stats.get('health_score', 100)
+    critical_count = stats.get('critical', 0)
+    error_count = stats.get('errors', 0)
+    warning_count = stats.get('warnings', 0)
+    
     # --- SECTION 1: Executive Summary ---
     col1, col2, col3, col4 = st.columns([1.5, 1, 1, 1])
     
     with col1:
-        st.plotly_chart(create_gauge_chart(stats['health_score']), use_container_width=True)
+        st.plotly_chart(create_gauge_chart(health_score), use_container_width=True)
         
     with col2:
         st.markdown('<div class="metric-container" style="height: 100%; display:flex; flex-direction:column; justify-content:center;">', unsafe_allow_html=True)
-        st.metric("Critical Errors", stats['critical'])
+        st.metric("Critical Errors", critical_count)
         st.markdown('</div>', unsafe_allow_html=True)
         
     with col3:
         st.markdown('<div class="metric-container" style="height: 100%; display:flex; flex-direction:column; justify-content:center;">', unsafe_allow_html=True)
-        st.metric("Standard Errors", stats['errors'])
+        st.metric("Standard Errors", error_count)
         st.markdown('</div>', unsafe_allow_html=True)
         
     with col4:
         st.markdown('<div class="metric-container" style="height: 100%; display:flex; flex-direction:column; justify-content:center;">', unsafe_allow_html=True)
-        st.metric("Warnings", stats['warnings'])
+        st.metric("Warnings", warning_count)
         st.markdown('</div>', unsafe_allow_html=True)
 
     st.markdown("---")
@@ -412,7 +407,6 @@ def page_analytics():
         
         with col_chart1:
             st.markdown("### Issue Distribution")
-            # Treemap using Plotly
             fig_tree = px.treemap(
                 df_res, 
                 path=['Severity', 'Issue Type'], 
