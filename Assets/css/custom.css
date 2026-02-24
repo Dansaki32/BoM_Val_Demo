@@ -1,0 +1,105 @@
+/* ==========================================================================
+   QUICK RELEASE_ BRAND STYLESHEET
+   Font: Segoe UI
+   Primary Colors: #D7171F (Red), #232324 (Dark Grey), #F2F2F2 (Light Grey)
+   ========================================================================== */
+
+/* Global Typography & Background */
+html, body, .stApp {
+    background-color: #F2F2F2 !important; /* Light Grey Background */
+    color: #232324 !important; /* Dark Grey Body Text */
+    font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif !important;
+}
+
+/* Text Elements */
+h1, h2, h3, h4, h5, h6, p, li, label, .stMarkdown, .dataframe, span, div { 
+    font-family: 'Segoe UI', sans-serif !important; 
+    color: #232324 !important;
+}
+
+/* Headers */
+h1, h2, h3, h4, h5, h6 { 
+    font-weight: bold !important; 
+}
+h1 { color: #D7171F !important; } /* QR Red for Main Headers */
+h2, h3 { color: #232324 !important; } /* Dark Grey for Sub-headers */
+
+/* Secondary Text (Descriptions, references) */
+.st-emotion-cache-10trblm, /* Streamlit caption class */
+.secondary-text {
+    color: #6C6E70 !important; /* Medium Grey */
+}
+
+/* Hyperlinks */
+a {
+    color: #D7171F !important;
+    text-decoration: underline !important;
+    font-weight: bold;
+}
+
+/* Bullet Points (Square and Red per guidelines) */
+ul {
+    list-style-type: square !important;
+}
+ul li::marker {
+    color: #D7171F !important;
+}
+
+/* Buttons */
+.stButton>button { 
+    background-color: #D7171F !important; /* QR Red */
+    color: #FFFFFF !important; /* White Text */
+    border-radius: 4px; 
+    border: none; 
+    font-weight: bold; 
+    padding: 0.75rem 1.5rem; 
+    transition: all 0.3s ease; 
+}
+.stButton>button:hover { 
+    background-color: #A11117 !important; /* Darker Red on hover */
+    box-shadow: 0 4px 8px rgba(215, 23, 31, 0.3); 
+}
+
+/* Sidebar */
+section[data-testid="stSidebar"] { 
+    background-color: #232324 !important; /* Dark Grey Sidebar */
+    border-right: 4px solid #D7171F; /* QR Red Accent */
+}
+section[data-testid="stSidebar"] * { 
+    color: #FFFFFF !important; /* White text on dark background */
+}
+
+/* Cards & Containers */
+.info-card, .metric-container, .stFileUploader, .stDataFrame, .dataframe { 
+    background-color: #FFFFFF !important; /* White background for content */
+    border-radius: 8px; 
+    box-shadow: 0 2px 4px rgba(35, 35, 36, 0.1);
+    border: 1px solid #E1E2E3;
+}
+
+/* DataFrames / Tables */
+.dataframe thead th { 
+    background-color: #232324 !important; 
+    color: #FFFFFF !important; 
+    font-weight: bold; 
+}
+
+/* Action Center Cards */
+.issue-card {
+    background-color: #FFFFFF;
+    padding: 1.5rem;
+    border-radius: 8px;
+    margin-bottom: 1rem;
+    box-shadow: 0 2px 4px rgba(0,0,0,0.05);
+}
+
+/* Metrics */
+[data-testid="stMetricValue"] { 
+    color: #D7171F !important; 
+    font-weight: bold !important; 
+    font-size: 2.5rem !important; 
+}
+[data-testid="stMetricLabel"] { 
+    color: #6C6E70 !important; 
+    font-size: 1.1rem !important; 
+}

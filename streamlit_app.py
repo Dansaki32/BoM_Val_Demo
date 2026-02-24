@@ -1,6 +1,5 @@
 import streamlit as st
 from pathlib import Path
-import base64
 import pandas as pd
 import numpy as np
 from typing import Optional, Dict, List, Tuple
@@ -8,106 +7,58 @@ from datetime import datetime
 import plotly.express as px
 import plotly.graph_objects as go
 import urllib.parse
+import os
 
 # ============================================================================
-# CONFIGURATION & CONSTANTS
+# CONFIGURATION & CONSTANTS (QR_ BRAND)
 # ============================================================================
 
 BASE_DIR = Path(__file__).parent.absolute()
+ASSETS_DIR = BASE_DIR / "assets"
+CSS_PATH = ASSETS_DIR / "css" / "qr_theme.css"
+LOGO_PATH = ASSETS_DIR / "images" / "qr_logo_long.png"
 
 class Config:
-    """Centralized configuration with Root Directory Paths"""
-    FONT_REGULAR_PATH = BASE_DIR / "Dolce Vita (1).ttf"
-    FONT_BOLD_PATH = BASE_DIR / "Dolce Vita Heavy Bold (1).ttf"
-    FONT_LIGHT_PATH = BASE_DIR / "Dolce Vita Light (1).ttf"
-    LOGO_PATH = BASE_DIR / "logo.png"
-    
+    """QR_ Brand Color Palette"""
     COLORS = {
-        'primary': '#AD1212',
-        'secondary': '#D63030',
-        'highlight': '#FF81AA',
-        'background': '#18191A',
-        'sidebar_bg': '#1A1D21',
-        'card_bg': '#23272A',
-        'error_bg': '#3A2323',
-        'success': '#28a745',
-        'warning': '#ffc107',
-        'text': '#FFFFFF',
-        'text_muted': '#B0B0B0',
+        'primary_red': '#D7171F',
+        'dark_grey': '#232324',
+        'medium_grey': '#6C6E70',
+        'light_grey': '#F2F2F2',
+        'white': '#FFFFFF',
+        'blue_1': '#0070BB',
+        'blue_2': '#00B7EB',
+        'green': '#4D8B31',
+        'orange': '#EE4B0F',
+        'yellow': '#FFA602'
     }
     
     SEVERITY_COLORS = {
-        'CRITICAL': '#AD1212',
-        'ERROR': '#D63030',
-        'WARNING': '#ffc107',
-        'INFO': '#17a2b8'
+        'CRITICAL': '#D7171F', # QR Red
+        'ERROR': '#EE4B0F',    # QR Orange
+        'WARNING': '#FFA602',  # QR Yellow
+        'INFO': '#0070BB'      # QR Blue
     }
 
 # ============================================================================
-# STYLING & THEME
+# STYLING & THEME INJECTION
 # ============================================================================
 
-@st.cache_data
-def load_custom_font() -> str:
-    css = ""
-    if Config.FONT_REGULAR_PATH.exists():
-        try:
-            with open(Config.FONT_REGULAR_PATH, "rb") as f:
-                b64 = base64.b64encode(f.read()).decode()
-            css += f"@font-face {{ font-family: 'DolceVita'; src: url(data:font/ttf;base64,{b64}) format('truetype'); font-weight: normal; font-style: normal; }}"
-        except Exception: pass
-    
-    if Config.FONT_BOLD_PATH.exists():
-        try:
-            with open(Config.FONT_BOLD_PATH, "rb") as f:
-                b64 = base64.b64encode(f.read()).decode()
-            css += f"@font-face {{ font-family: 'DolceVita'; src: url(data:font/ttf;base64,{b64}) format('truetype'); font-weight: bold; font-style: normal; }}"
-        except Exception: pass
-        
-    return css
-
 def apply_custom_theme():
-    font_css = load_custom_font()
-    c = Config.COLORS
-    
-    # CSS FIX applied here: Targeted font-family to avoid breaking Streamlit's Material Icons
-    theme_css = f"""
-        <style>
-        {font_css}
-        html, body, .stApp {{ background-color: {c['background']} !important; color: {c['text']} !important; }}
-        
-        /* Apply custom font ONLY to text elements, protecting UI icons */
-        h1, h2, h3, h4, h5, h6, p, li, label, .stMarkdown, .dataframe, button {{ 
-            font-family: 'DolceVita', 'Inter', sans-serif !important; 
-        }}
-        
-        h1, h2, h3, h4, h5, h6 {{ color: {c['text']} !important; font-weight: bold !important; }}
-        .main-title {{ background: linear-gradient(135deg, {c['primary']} 0%, {c['secondary']} 100%); padding: 2rem; border-radius: 12px; margin-bottom: 2rem; box-shadow: 0 4px 6px rgba(0, 0, 0, 0.3); }}
-        .stButton>button {{ background: linear-gradient(135deg, {c['primary']} 0%, {c['secondary']} 100%); color: {c['text']} !important; border-radius: 8px; border: none; font-weight: bold; padding: 0.75rem 1.5rem; transition: all 0.3s ease; }}
-        .stButton>button:hover {{ transform: translateY(-2px); box-shadow: 0 6px 12px rgba(173, 18, 18, 0.4); }}
-        section[data-testid="stSidebar"] {{ background-color: {c['sidebar_bg']} !important; border-right: 2px solid {c['primary']}; }}
-        .stFileUploader {{ background-color: {c['card_bg']} !important; border: 2px dashed {c['highlight']} !important; border-radius: 12px; padding: 2rem; }}
-        .stDataFrame, .dataframe {{ background-color: {c['card_bg']} !important; color: {c['text']} !important; }}
-        .dataframe thead th {{ background-color: {c['primary']} !important; color: {c['text']} !important; font-weight: bold; }}
-        .info-card {{ background: linear-gradient(135deg, {c['card_bg']} 0%, rgba(173, 18, 18, 0.1) 100%); padding: 1.5rem; border-radius: 12px; border-left: 4px solid {c['highlight']}; margin: 1rem 0; color: {c['text']} !important; }}
-        .error-card {{ background: linear-gradient(135deg, {c['error_bg']} 0%, rgba(173, 18, 18, 0.2) 100%); padding: 1.5rem; border-radius: 12px; border-left: 4px solid {c['primary']}; margin: 1rem 0; color: {c['text']} !important; }}
-        .success-card {{ background: linear-gradient(135deg, {c['card_bg']} 0%, rgba(40, 167, 69, 0.1) 100%); padding: 1.5rem; border-radius: 12px; border-left: 4px solid {c['success']}; margin: 1rem 0; color: {c['text']} !important; }}
-        .metric-container {{ background-color: {c['card_bg']}; padding: 1.5rem; border-radius: 12px; box-shadow: 0 4px 6px rgba(0, 0, 0, 0.2); border: 2px solid transparent; transition: all 0.3s ease; text-align: center; }}
-        .metric-container:hover {{ border-color: {c['highlight']}; transform: translateY(-2px); }}
-        [data-testid="stMetricValue"] {{ color: {c['highlight']} !important; font-weight: bold !important; font-size: 2.5rem !important; }}
-        [data-testid="stMetricLabel"] {{ color: {c['text_muted']} !important; font-size: 1.1rem !important; }}
-        </style>
-    """
-    st.markdown(theme_css, unsafe_allow_html=True)
+    """Loads the external QR_ CSS file and injects it into Streamlit"""
+    if CSS_PATH.exists():
+        with open(CSS_PATH, "r") as f:
+            css_content = f.read()
+        st.markdown(f"<style>{css_content}</style>", unsafe_allow_html=True)
+    else:
+        st.warning("⚠️ CSS file not found. Please ensure 'assets/css/qr_theme.css' exists.")
 
 def show_logo():
-    if Config.LOGO_PATH.exists():
-        try:
-            st.sidebar.image(str(Config.LOGO_PATH), use_container_width=True)
-        except Exception:
-            st.sidebar.markdown("<h2 style='text-align: center; color: #FF81AA;'>🚙 Feature Validator</h2>", unsafe_allow_html=True)
+    """Displays the QR_ Logo in the sidebar"""
+    if LOGO_PATH.exists():
+        st.sidebar.image(str(LOGO_PATH), use_container_width=True)
     else:
-        st.sidebar.markdown("<h2 style='text-align: center; color: #FF81AA;'>🚙 Feature Validator</h2>", unsafe_allow_html=True)
+        st.sidebar.markdown(f"<h2 style='text-align: center; color: {Config.COLORS['primary_red']};'>QUICK RELEASE_</h2>", unsafe_allow_html=True)
 
 # ============================================================================
 # DATA MODELS & VALIDATION LOGIC
@@ -230,27 +181,27 @@ def validate_against_pdl(bom_df: pd.DataFrame, pdl_df: Optional[pd.DataFrame]) -
     return results, stats
 
 def create_gauge_chart(score):
-    if score < 20: color = Config.COLORS['success']
-    elif score < 50: color = Config.COLORS['warning']
-    else: color = Config.COLORS['primary']
+    if score < 20: color = Config.COLORS['green']
+    elif score < 50: color = Config.COLORS['yellow']
+    else: color = Config.COLORS['primary_red']
         
     fig = go.Figure(go.Indicator(
         mode = "gauge+number",
         value = score,
-        title = {'text': "Buildability Risk Score", 'font': {'color': Config.COLORS['text'], 'size': 24}},
+        title = {'text': "Buildability Risk Score", 'font': {'color': Config.COLORS['dark_grey'], 'size': 24, 'family': 'Segoe UI'}},
         gauge = {
-            'axis': {'range': [0, 100], 'tickwidth': 1, 'tickcolor': "white"},
+            'axis': {'range': [0, 100], 'tickwidth': 1, 'tickcolor': Config.COLORS['dark_grey']},
             'bar': {'color': color},
-            'bgcolor': Config.COLORS['card_bg'],
+            'bgcolor': Config.COLORS['white'],
             'borderwidth': 2,
-            'bordercolor': "gray",
+            'bordercolor': Config.COLORS['medium_grey'],
             'steps': [
-                {'range': [0, 20], 'color': 'rgba(40, 167, 69, 0.3)'},
-                {'range': [20, 50], 'color': 'rgba(255, 193, 7, 0.3)'},
-                {'range': [50, 100], 'color': 'rgba(173, 18, 18, 0.3)'}],
+                {'range': [0, 20], 'color': '#D9EECF'}, # QR Light Green
+                {'range': [20, 50], 'color': '#FFDB9A'}, # QR Light Yellow
+                {'range': [50, 100], 'color': '#FACED0'}], # QR Light Red
         }
     ))
-    fig.update_layout(paper_bgcolor='rgba(0,0,0,0)', font={'color': Config.COLORS['text']}, height=350, margin=dict(l=20, r=20, t=50, b=20))
+    fig.update_layout(paper_bgcolor='rgba(0,0,0,0)', font={'color': Config.COLORS['dark_grey'], 'family': 'Segoe UI'}, height=350, margin=dict(l=20, r=20, t=50, b=20))
     return fig
 
 # ============================================================================
@@ -258,7 +209,7 @@ def create_gauge_chart(score):
 # ============================================================================
 
 def page_upload_validate():
-    st.markdown('<div class="main-title"><h1>📤 Upload Configuration Files</h1></div>', unsafe_allow_html=True)
+    st.markdown('<h1>📤 Upload Configuration Files</h1>', unsafe_allow_html=True)
     st.markdown('<div class="info-card">Upload your <strong>Bill of Materials (BoM)</strong> and the <strong>PDL Guidance File</strong> to perform advanced cross-reference validation.</div>', unsafe_allow_html=True)
     
     col1, col2 = st.columns(2)
@@ -301,7 +252,7 @@ def page_upload_validate():
         num_parts = 250
         part_numbers = [f"PN-F{10000 + i}" for i in range(num_parts)]
         valid_features = ['ENG-V8', 'TRANS-AUTO', 'SEAT-LEA', 'WHEEL-18', 'NAV-02', 'AUDIO-PREM', 'LIGHT-LED', 'TRIM-CHROME']
-        sample_engineers = ['john.smith@ford.com', 'mary.jane@ford.com', 'david.lee@ford.com', 'sarah.connor@ford.com']
+        sample_engineers = ['john.smith@quickrelease.co.uk', 'mary.jane@quickrelease.co.uk', 'david.lee@quickrelease.co.uk']
         
         feature_codes, quantities, descriptions, assigned_engineers = [], [], [], []
         
@@ -353,7 +304,7 @@ def page_upload_validate():
         st.rerun()
 
 def page_analytics():
-    st.markdown('<div class="main-title"><h1>📊 Advanced Analytics & Insights</h1></div>', unsafe_allow_html=True)
+    st.markdown('<h1>📊 Advanced Analytics & Insights</h1>', unsafe_allow_html=True)
     if 'validation_results' not in st.session_state or 'validation_stats' not in st.session_state:
         st.warning("⚠️ Please upload files and run validation first.")
         return
@@ -383,24 +334,24 @@ def page_analytics():
         with col_chart1:
             st.markdown("### Issue Distribution")
             fig_tree = px.sunburst(df_res, path=['Severity', 'Issue Type'], color='Severity',
-                                   color_discrete_map=Config.SEVERITY_COLORS, template="plotly_dark")
+                                   color_discrete_map=Config.SEVERITY_COLORS)
             fig_tree.update_traces(textinfo="label+value") 
-            fig_tree.update_layout(paper_bgcolor='rgba(0,0,0,0)', plot_bgcolor='rgba(0,0,0,0)', margin=dict(t=10, l=0, r=0, b=10))
+            fig_tree.update_layout(paper_bgcolor='rgba(0,0,0,0)', plot_bgcolor='rgba(0,0,0,0)', margin=dict(t=10, l=0, r=0, b=10), font=dict(family='Segoe UI', color=Config.COLORS['dark_grey']))
             st.plotly_chart(fig_tree, use_container_width=True)
             
         with col_chart2:
             st.markdown("### Most Problematic Features")
             feature_counts = df_res['Feature Code'].replace('MISSING', 'Unassigned').value_counts().head(7).reset_index()
             feature_counts.columns = ['Feature Code', 'Issue Count']
-            fig_bar = px.bar(feature_counts, x='Issue Count', y='Feature Code', orientation='h', text='Issue Count', template="plotly_dark")
-            fig_bar.update_traces(marker_color=Config.COLORS['primary'], textposition='outside')
-            fig_bar.update_layout(paper_bgcolor='rgba(0,0,0,0)', plot_bgcolor='rgba(0,0,0,0)', yaxis={'categoryorder':'total ascending'}, margin=dict(t=10, l=0, r=20, b=10))
+            fig_bar = px.bar(feature_counts, x='Issue Count', y='Feature Code', orientation='h', text='Issue Count')
+            fig_bar.update_traces(marker_color=Config.COLORS['primary_red'], textposition='outside')
+            fig_bar.update_layout(paper_bgcolor='rgba(0,0,0,0)', plot_bgcolor='rgba(0,0,0,0)', yaxis={'categoryorder':'total ascending'}, margin=dict(t=10, l=0, r=20, b=10), font=dict(family='Segoe UI', color=Config.COLORS['dark_grey']))
             st.plotly_chart(fig_bar, use_container_width=True)
             
     st.markdown("---")
     st.markdown("### 🛠️ Action Center: Recommended Fixes")
     if not results:
-        st.markdown('<div class="success-card"><h3>✨ Zero Issues Detected</h3><p>Your BoM fully complies with the PDL guidance. No actions required.</p></div>', unsafe_allow_html=True)
+        st.markdown('<div class="info-card"><h3 style="color:#4D8B31;">✨ Zero Issues Detected</h3><p>Your BoM fully complies with the PDL guidance. No actions required.</p></div>', unsafe_allow_html=True)
         return
 
     df_results = pd.DataFrame([r.to_dict() for r in results])
@@ -409,23 +360,23 @@ def page_analytics():
     if sev_filter != "All": df_results = df_results[df_results['Severity'] == sev_filter]
 
     for idx, row in df_results.iterrows():
-        color = Config.SEVERITY_COLORS.get(row['Severity'], '#FFF')
+        color = Config.SEVERITY_COLORS.get(row['Severity'], Config.COLORS['dark_grey'])
         st.markdown(f"""
-        <div style="background-color: {Config.COLORS['card_bg']}; border-left: 5px solid {color}; padding: 1.5rem; border-radius: 8px; margin-bottom: 1rem;">
+        <div class="issue-card" style="border-left: 5px solid {color};">
             <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 10px;">
                 <h4 style="margin:0; color: {color} !important;">{row['Issue Type']}</h4>
                 <span style="background-color: {color}; color: white; padding: 4px 12px; border-radius: 12px; font-size: 0.8rem; font-weight: bold;">{row['Severity']}</span>
             </div>
             <p style="margin-bottom: 5px;"><strong>Part:</strong> {row['Part Number']} | <strong>Feature:</strong> {row['Feature Code']} | <strong>Engineer:</strong> {row['Engineer ID']}</p>
-            <p style="color: {Config.COLORS['text_muted']}; margin-bottom: 15px;"><em>{row['Message']}</em></p>
-            <div style="background-color: rgba(255,255,255,0.05); padding: 10px; border-radius: 6px; border: 1px solid {Config.COLORS['highlight']};">
-                <strong style="color: {Config.COLORS['highlight']};">💡 Recommended Fix:</strong><br>{row['Recommended Fix']}
+            <p style="color: {Config.COLORS['medium_grey']}; margin-bottom: 15px;"><em>{row['Message']}</em></p>
+            <div style="background-color: {Config.COLORS['light_grey']}; padding: 10px; border-radius: 6px; border: 1px solid #E1E2E3;">
+                <strong style="color: {Config.COLORS['primary_red']};">💡 Recommended Fix:</strong><br>{row['Recommended Fix']}
             </div>
         </div>
         """, unsafe_allow_html=True)
 
 def page_auto_emails():
-    st.markdown('<div class="main-title"><h1>📧 D&R Auto-Communications</h1></div>', unsafe_allow_html=True)
+    st.markdown('<h1>📧 D&R Auto-Communications</h1>', unsafe_allow_html=True)
     
     if 'validation_results' not in st.session_state or not st.session_state.validation_results:
         st.warning("⚠️ Please run validation first to generate engineer communications.")
@@ -473,8 +424,7 @@ def page_auto_emails():
             body += "="*60 + "\n\n"
             body += "Thank you,\nBoM Validation Team\n"
             
-            # Added CC Placeholder for Supervisor
-            mailto_link = f"mailto:{eng_id}?cc=INSERT_SUPERVISOR_HERE@ford.com&subject={urllib.parse.quote(subject)}&body={urllib.parse.quote(body)}"
+            mailto_link = f"mailto:{eng_id}?cc=INSERT_SUPERVISOR_HERE@quickrelease.co.uk&subject={urllib.parse.quote(subject)}&body={urllib.parse.quote(body)}"
             
             df_display = pd.DataFrame([r.to_dict() for r in issues])[['Severity', 'Issue Type', 'Part Number', 'Feature Code']]
             st.dataframe(df_display, use_container_width=True, hide_index=True)
@@ -482,16 +432,16 @@ def page_auto_emails():
             st.markdown(f'''
                 <a href="{mailto_link}" target="_blank" style="text-decoration: none;">
                     <button style="
-                        background: linear-gradient(135deg, {Config.COLORS['primary']} 0%, {Config.COLORS['secondary']} 100%);
-                        color: white; border: none; padding: 10px 20px; border-radius: 6px;
+                        background-color: {Config.COLORS['primary_red']};
+                        color: white; border: none; padding: 10px 20px; border-radius: 4px;
                         font-weight: bold; cursor: pointer; margin-top: 5px; margin-bottom: 10px;
-                        box-shadow: 0 4px 6px rgba(0,0,0,0.2);
+                        font-family: 'Segoe UI', sans-serif;
                     ">📨 Draft Email in Outlook</button>
                 </a>
             ''', unsafe_allow_html=True)
 
 def page_nightletter():
-    st.markdown('<div class="main-title"><h1>🌙 Executive Nightletter</h1></div>', unsafe_allow_html=True)
+    st.markdown('<h1>🌙 Executive Nightletter</h1>', unsafe_allow_html=True)
     
     if 'validation_results' not in st.session_state or 'validation_stats' not in st.session_state:
         st.warning("⚠️ Please run a validation first to generate the Nightletter.")
@@ -505,23 +455,22 @@ def page_nightletter():
     col1, col2, col3 = st.columns(3)
     with col1:
         st.markdown(f"""<div class="metric-container">
-            <h3 style="color:{Config.COLORS['text_muted']}; margin:0;">Risk Score</h3>
-            <h1 style="color:{Config.COLORS['highlight']}; font-size: 3rem; margin:0;">{stats.get('risk_score', 0)}/100</h1>
+            <h3 style="color:{Config.COLORS['medium_grey']}; margin:0;">Risk Score</h3>
+            <h1 style="color:{Config.COLORS['primary_red']}; font-size: 3rem; margin:0;">{stats.get('risk_score', 0)}/100</h1>
         </div>""", unsafe_allow_html=True)
     with col2:
         st.markdown(f"""<div class="metric-container">
-            <h3 style="color:{Config.COLORS['text_muted']}; margin:0;">Total Issues</h3>
-            <h1 style="color:{Config.COLORS['secondary']}; font-size: 3rem; margin:0;">{len(results)}</h1>
+            <h3 style="color:{Config.COLORS['medium_grey']}; margin:0;">Total Issues</h3>
+            <h1 style="color:{Config.COLORS['dark_grey']}; font-size: 3rem; margin:0;">{len(results)}</h1>
         </div>""", unsafe_allow_html=True)
     with col3:
         st.markdown(f"""<div class="metric-container">
-            <h3 style="color:{Config.COLORS['text_muted']}; margin:0;">Parts Checked</h3>
-            <h1 style="color:{Config.COLORS['success']}; font-size: 3rem; margin:0;">{stats.get('total_features_checked', 0)}</h1>
+            <h3 style="color:{Config.COLORS['medium_grey']}; margin:0;">Parts Checked</h3>
+            <h1 style="color:{Config.COLORS['green']}; font-size: 3rem; margin:0;">{stats.get('total_features_checked', 0)}</h1>
         </div>""", unsafe_allow_html=True)
         
     st.markdown("---")
     
-    # Generate Top Issues text
     df_res = pd.DataFrame([r.to_dict() for r in results])
     top_features = ""
     if not df_res.empty:
@@ -531,7 +480,6 @@ def page_nightletter():
     else:
         top_features = "  • No issues detected today!\n"
 
-    # Construct Nightletter Body
     bom_name = st.session_state.get('bom_filename', 'Unknown BoM')
     date_str = datetime.now().strftime("%B %d, %Y")
     
@@ -557,26 +505,26 @@ Engineers have been notified via the automated queue system to correct their res
 Please review the complete dashboard for granular analytics.
 
 Thank you,
-Feature Validation System"""
+Quick Release_ Validation System"""
 
     st.markdown("### 📝 Nightletter Preview")
     st.text_area("Email Content", value=nightletter_body, height=400, disabled=True)
     
-    mailto_link = f"mailto:management_team@ford.com?subject={urllib.parse.quote(nightletter_subject)}&body={urllib.parse.quote(nightletter_body)}"
+    mailto_link = f"mailto:management_team@quickrelease.co.uk?subject={urllib.parse.quote(nightletter_subject)}&body={urllib.parse.quote(nightletter_body)}"
     
     st.markdown(f'''
         <a href="{mailto_link}" target="_blank" style="text-decoration: none;">
             <button style="
-                background: linear-gradient(135deg, #28a745 0%, #208838 100%);
-                color: white; border: none; padding: 15px 30px; border-radius: 8px;
+                background-color: {Config.COLORS['green']};
+                color: white; border: none; padding: 15px 30px; border-radius: 4px;
                 font-weight: bold; font-size: 1.1rem; cursor: pointer; margin-top: 10px;
-                box-shadow: 0 4px 6px rgba(0,0,0,0.2); width: 100%;
+                font-family: 'Segoe UI', sans-serif; width: 100%;
             ">🚀 Send Nightletter via Outlook</button>
         </a>
     ''', unsafe_allow_html=True)
 
 def page_dashboard():
-    st.markdown('<div class="main-title"><h1>🏠 Dashboard Home</h1></div>', unsafe_allow_html=True)
+    st.markdown('<h1>🏠 Dashboard Home</h1>', unsafe_allow_html=True)
     col1, col2, col3 = st.columns(3)
     with col1:
         st.markdown("""<div class="info-card"><h3>Step 1: Upload Data</h3><p>Upload your BoM and PDL files to begin the validation process.</p></div>""", unsafe_allow_html=True)
@@ -598,14 +546,13 @@ def page_dashboard():
 # ============================================================================
 
 def main():
-    st.set_page_config(page_title="Feature Code Validator | Ford OEM", page_icon="🚙", layout="wide", initial_sidebar_state="expanded")
+    st.set_page_config(page_title="Feature Code Validator | QR_", page_icon="📋", layout="wide", initial_sidebar_state="expanded")
     apply_custom_theme()
     
     if 'bom_df' not in st.session_state: st.session_state.bom_df = None
     if 'pdl_df' not in st.session_state: st.session_state.pdl_df = None
     
     show_logo()
-    st.sidebar.title("Feature Validator")
     st.sidebar.markdown("---")
     
     page = st.sidebar.radio("🧭 Navigation", ["Dashboard", "Upload & Validate", "Analytics", "Auto Emails", "Nightletter"], index=0)
@@ -616,7 +563,7 @@ def main():
             if key in st.session_state: del st.session_state[key]
         st.rerun()
         
-    st.sidebar.caption(f"© {datetime.now().year} Ford OEM")
+    st.sidebar.caption(f"© {datetime.now().year} Quick Release_")
     
     if page == "Dashboard": page_dashboard()
     elif page == "Upload & Validate": page_upload_validate()
