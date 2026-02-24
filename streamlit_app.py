@@ -8,6 +8,7 @@ import io
 from datetime import datetime
 import plotly.express as px
 import plotly.graph_objects as go
+import urllib.parse  # Added for email URL encoding
 
 # ============================================================================
 # CONFIGURATION & CONSTANTS
@@ -112,27 +113,30 @@ def show_logo():
         try:
             st.sidebar.image(str(Config.LOGO_PATH), use_container_width=True)
         except Exception:
-            st.sidebar.markdown("<h2 style='text-align: center; color: #FF81AA;'>🔧 Feature Validator</h2>", unsafe_allow_html=True)
+            st.sidebar.markdown("<h2 style='text-align: center; color: #FF81AA;'>⎔ Feature Validator</h2>", unsafe_allow_html=True)
     else:
-        st.sidebar.markdown("<h2 style='text-align: center; color: #FF81AA;'>🔧 Feature Validator</h2>", unsafe_allow_html=True)
+        st.sidebar.markdown("<h2 style='text-align: center; color: #FF81AA;'>⎔ Feature Validator</h2>", unsafe_allow_html=True)
 
 # ============================================================================
 # DATA MODELS
 # ============================================================================
 
 class ValidationResult:
+    # Added engineer_id parameter
     def __init__(self, part_number: str, feature_code: str, severity: str, 
-                 issue_type: str, message: str, recommendation: str):
+                 issue_type: str, message: str, recommendation: str, engineer_id: str = "Unassigned"):
         self.part_number = part_number
         self.feature_code = feature_code
         self.severity = severity
         self.issue_type = issue_type
         self.message = message
         self.recommendation = recommendation
+        self.engineer_id = engineer_id
         self.timestamp = datetime.now()
     
     def to_dict(self) -> Dict:
         return {
+            'Engineer ID': self.engineer_id,
             'Part Number': self.part_number,
             'Feature Code': self.feature_code,
             'Severity': self.severity,
@@ -169,16 +173,23 @@ def validate_against_pdl(bom_df: pd.DataFrame, pdl_df: Optional[pd.DataFrame]) -
     part_col = 'Part_Number' if 'Part_Number' in bom_df.columns else bom_df.columns[0]
     feat_col = 'Feature_Code' if 'Feature_Code' in bom_df.columns else (bom_df.columns[1] if len(bom_df.columns)>1 else None)
     
+    # Identify the Engineer/D&R column dynamically
+    eng_col = next((c for c in bom_df.columns if c.upper() in ['ENGINEER_ID', 'D&R_ID', 'ENGINEER', 'OWNER']), None)
+    
     for idx, row in bom_df.iterrows():
         part_num = str(row.get(part_col, f'Row {idx}'))
         feat_code = str(row.get(feat_col, ''))
+        eng_id = str(row.get(eng_col, 'Unassigned')) if eng_col else 'Unassigned'
+        if pd.isna(row.get(eng_col)) or eng_id.lower() == 'nan': eng_id = 'Unassigned'
+        
         stats['total_features_checked'] += 1
         
         if pd.isna(feat_code) or not feat_code.strip() or feat_code.lower() == 'none':
             results.append(ValidationResult(
                 part_num, 'MISSING', 'ERROR', 'Missing Data',
                 'Part has no feature code assigned.',
-                f'Assign a valid feature code to {part_num} according to PDL guidelines.'
+                f'Assign a valid feature code to {part_num} according to PDL guidelines.',
+                eng_id
             ))
             stats['errors'] += 1
             
@@ -188,6 +199,8 @@ def validate_against_pdl(bom_df: pd.DataFrame, pdl_df: Optional[pd.DataFrame]) -
         for idx, row in bom_df.iterrows():
             part_num = str(row.get(part_col, f'Row {idx}'))
             feat_code = str(row.get(feat_col, ''))
+            eng_id = str(row.get(eng_col, 'Unassigned')) if eng_col else 'Unassigned'
+            if pd.isna(row.get(eng_col)) or eng_id.lower() == 'nan': eng_id = 'Unassigned'
             
             if not feat_code or feat_code.lower() == 'none': continue
             
@@ -195,7 +208,8 @@ def validate_against_pdl(bom_df: pd.DataFrame, pdl_df: Optional[pd.DataFrame]) -
                 results.append(ValidationResult(
                     part_num, feat_code, 'CRITICAL', 'Obsolete Feature',
                     f'Feature {feat_code} is marked as obsolete in current PDL.',
-                    f'Replace {feat_code} with the superseding feature code from the PDL master list.'
+                    f'Replace {feat_code} with the superseding feature code from the PDL master list.',
+                    eng_id
                 ))
                 stats['critical'] += 1
                 
@@ -203,7 +217,8 @@ def validate_against_pdl(bom_df: pd.DataFrame, pdl_df: Optional[pd.DataFrame]) -
                 results.append(ValidationResult(
                     part_num, feat_code, 'CRITICAL', 'Mutually Exclusive',
                     f'Feature {feat_code} conflicts with other features in the build.',
-                    f'Review build configuration. You cannot build a vehicle with both LHD and RHD features. Remove conflicting code.'
+                    f'Review build configuration. You cannot build a vehicle with both LHD and RHD features. Remove conflicting code.',
+                    eng_id
                 ))
                 stats['critical'] += 1
                 
@@ -211,7 +226,8 @@ def validate_against_pdl(bom_df: pd.DataFrame, pdl_df: Optional[pd.DataFrame]) -
                 results.append(ValidationResult(
                     part_num, feat_code, 'ERROR', 'Missing Dependency',
                     f'{feat_code} requires a compatible roof panel feature code.',
-                    f'Add the required prerequisite feature code (e.g., ROOF-001) to support {feat_code}.'
+                    f'Add the required prerequisite feature code (e.g., ROOF-001) to support {feat_code}.',
+                    eng_id
                 ))
                 stats['errors'] += 1
 
@@ -221,7 +237,8 @@ def validate_against_pdl(bom_df: pd.DataFrame, pdl_df: Optional[pd.DataFrame]) -
                     results.append(ValidationResult(
                         part_num, feat_code, 'WARNING', 'Unusual Quantity',
                         f'Quantity {qty} exceeds standard PDL limits for this feature class.',
-                        f'Verify if {qty} units are actually required. Standard PDL limit is typically <= 4.'
+                        f'Verify if {qty} units are actually required. Standard PDL limit is typically <= 4.',
+                        eng_id
                     ))
                     stats['warnings'] += 1
             except: pass
@@ -237,12 +254,9 @@ def validate_against_pdl(bom_df: pd.DataFrame, pdl_df: Optional[pd.DataFrame]) -
 # ============================================================================
 
 def create_gauge_chart(score):
-    if score < 20:
-        color = Config.COLORS['success'] 
-    elif score < 50:
-        color = Config.COLORS['warning'] 
-    else:
-        color = Config.COLORS['primary'] 
+    if score < 20: color = Config.COLORS['success']
+    elif score < 50: color = Config.COLORS['warning']
+    else: color = Config.COLORS['primary']
         
     fig = go.Figure(go.Indicator(
         mode = "gauge+number",
@@ -255,19 +269,19 @@ def create_gauge_chart(score):
             'borderwidth': 2,
             'bordercolor': "gray",
             'steps': [
-                {'range': [0, 20], 'color': 'rgba(40, 167, 69, 0.3)'},   
-                {'range': [20, 50], 'color': 'rgba(255, 193, 7, 0.3)'},  
-                {'range': [50, 100], 'color': 'rgba(173, 18, 18, 0.3)'}], 
+                {'range': [0, 20], 'color': 'rgba(40, 167, 69, 0.3)'},
+                {'range': [20, 50], 'color': 'rgba(255, 193, 7, 0.3)'},
+                {'range': [50, 100], 'color': 'rgba(173, 18, 18, 0.3)'}],
         }
     ))
     fig.update_layout(paper_bgcolor='rgba(0,0,0,0)', font={'color': Config.COLORS['text']}, height=350, margin=dict(l=20, r=20, t=50, b=20))
     return fig
 
 def display_action_center(results: List[ValidationResult]):
-    st.markdown("### 🛠️ Action Center: Recommended Fixes")
+    st.markdown("### ⛭ Action Center: Recommended Fixes")
     
     if not results:
-        st.markdown('<div class="success-card"><h3>🎉 Zero Issues Detected</h3><p>Your BoM fully complies with the PDL guidance. No actions required.</p></div>', unsafe_allow_html=True)
+        st.markdown('<div class="success-card"><h3>✧ Zero Issues Detected</h3><p>Your BoM fully complies with the PDL guidance. No actions required.</p></div>', unsafe_allow_html=True)
         return
 
     df_results = pd.DataFrame([r.to_dict() for r in results])
@@ -287,17 +301,21 @@ def display_action_center(results: List[ValidationResult]):
                 <h4 style="margin:0; color: {color} !important;">{row['Issue Type']}</h4>
                 <span style="background-color: {color}; color: white; padding: 4px 12px; border-radius: 12px; font-size: 0.8rem; font-weight: bold;">{row['Severity']}</span>
             </div>
-            <p style="margin-bottom: 5px;"><strong>Part:</strong> {row['Part Number']} | <strong>Feature:</strong> {row['Feature Code']}</p>
+            <p style="margin-bottom: 5px;"><strong>Part:</strong> {row['Part Number']} | <strong>Feature:</strong> {row['Feature Code']} | <strong>Engineer:</strong> {row['Engineer ID']}</p>
             <p style="color: {Config.COLORS['text_muted']}; margin-bottom: 15px;"><em>{row['Message']}</em></p>
             <div style="background-color: rgba(255,255,255,0.05); padding: 10px; border-radius: 6px; border: 1px solid {Config.COLORS['highlight']};">
-                <strong style="color: {Config.COLORS['highlight']};">💡 Recommended Fix:</strong><br>
+                <strong style="color: {Config.COLORS['highlight']};">⟡ Recommended Fix:</strong><br>
                 {row['Recommended Fix']}
             </div>
         </div>
         """, unsafe_allow_html=True)
 
+# ============================================================================
+# PAGE ROUTING
+# ============================================================================
+
 def page_upload_validate():
-    st.markdown('<div class="main-title"><h1>📤 Upload Configuration Files</h1></div>', unsafe_allow_html=True)
+    st.markdown('<div class="main-title"><h1>⇪ Upload Configuration Files</h1></div>', unsafe_allow_html=True)
     
     st.markdown('<div class="info-card">Upload your <strong>Bill of Materials (BoM)</strong> and the <strong>PDL Guidance File</strong> to perform advanced cross-reference validation.</div>', unsafe_allow_html=True)
     
@@ -309,7 +327,7 @@ def page_upload_validate():
         if bom_file:
             st.session_state.bom_df = load_uploaded_file(bom_file)
             st.session_state.bom_filename = bom_file.name
-            st.success(f"✅ Loaded BoM: {bom_file.name}")
+            st.success(f"✔ Loaded BoM: {bom_file.name}")
             
     with col2:
         st.markdown("### 2. PDL Guidance Master")
@@ -317,15 +335,15 @@ def page_upload_validate():
         if pdl_file:
             st.session_state.pdl_df = load_uploaded_file(pdl_file)
             st.session_state.pdl_filename = pdl_file.name
-            st.success(f"✅ Loaded PDL: {pdl_file.name}")
+            st.success(f"✔ Loaded PDL: {pdl_file.name}")
             
     if st.session_state.get('bom_df') is not None:
         st.markdown("---")
-        if st.button("🚀 Run Advanced PDL Validation", type="primary", use_container_width=True):
+        if st.button("⟲ Run Advanced PDL Validation", type="primary", use_container_width=True):
             if st.session_state.get('pdl_df') is None:
-                st.warning("⚠️ Running validation without PDL Guidance. Only basic BoM checks will be performed.")
+                st.warning("◬ Running validation without PDL Guidance. Only basic BoM checks will be performed.")
             
-            with st.spinner("🔄 Cross-referencing BoM against PDL rules..."):
+            with st.spinner("⟲ Cross-referencing BoM against PDL rules..."):
                 results, stats = validate_against_pdl(st.session_state.bom_df, st.session_state.get('pdl_df'))
                 st.session_state.validation_results = results
                 st.session_state.validation_stats = stats
@@ -333,26 +351,29 @@ def page_upload_validate():
                 st.rerun()
                 
     if st.session_state.get('run_complete'):
-        st.success("✅ Validation Complete! Navigate to Analytics to view insights and recommended fixes.")
+        st.success("✔ Validation Complete! Navigate to Analytics to view insights and recommended fixes.")
 
     st.markdown("---")
-    st.markdown("### 🧪 Or Try Sample Data")
-    st.markdown("Generate a large, realistic BoM (250 parts) intentionally seeded with an uneven distribution of PDL errors to demonstrate the Analytics engine.")
+    st.markdown("### ⧉ Or Try Sample Data")
+    st.markdown("Generate a realistic BoM intentionally seeded with an uneven distribution of PDL errors (and assigned engineers) to demonstrate the Analytics and Email engine.")
     
-    if st.button("🎲 Generate Large Sample Workspace", use_container_width=True):
+    if st.button("↹ Generate Large Sample Workspace", use_container_width=True):
         np.random.seed(42)
         
         num_parts = 250
         part_numbers = [f"PN-F{10000 + i}" for i in range(num_parts)]
         
         valid_features = ['ENG-V8', 'TRANS-AUTO', 'SEAT-LEA', 'WHEEL-18', 'NAV-02', 'AUDIO-PREM', 'LIGHT-LED', 'TRIM-CHROME', 'SUSP-SPORT']
+        sample_engineers = ['john.smith@ford.com', 'mary.jane@ford.com', 'david.lee@ford.com', 'sarah.connor@ford.com']
         
         feature_codes = []
         quantities = []
         descriptions = []
+        assigned_engineers = []
         
         for i in range(num_parts):
             rand_val = np.random.random()
+            assigned_engineers.append(np.random.choice(sample_engineers))
             
             if rand_val < 0.75:
                 feature_codes.append(np.random.choice(valid_features))
@@ -383,7 +404,8 @@ def page_upload_validate():
             'Part_Number': part_numbers,
             'Feature_Code': feature_codes,
             'Description': descriptions,
-            'Quantity': quantities
+            'Quantity': quantities,
+            'Engineer_ID': assigned_engineers  # Added Engineer column
         })
         st.session_state.bom_filename = "Large_Sample_BoM_Data.csv"
         
@@ -402,10 +424,10 @@ def page_upload_validate():
         st.rerun()
 
 def page_analytics():
-    st.markdown('<div class="main-title"><h1>📊 Advanced Analytics & Insights</h1></div>', unsafe_allow_html=True)
+    st.markdown('<div class="main-title"><h1>▤ Advanced Analytics & Insights</h1></div>', unsafe_allow_html=True)
     
     if 'validation_results' not in st.session_state or 'validation_stats' not in st.session_state:
-        st.warning("⚠️ Please upload files and run validation first.")
+        st.warning("◬ Please upload files and run validation first.")
         return
         
     results = st.session_state.validation_results
@@ -484,10 +506,87 @@ def page_analytics():
     
     display_action_center(results)
 
-def page_dashboard():
-    st.markdown('<div class="main-title"><h1>🏠 Dashboard Home</h1></div>', unsafe_allow_html=True)
+def page_auto_emails():
+    st.markdown('<div class="main-title"><h1>✉ D&R Auto-Communications</h1></div>', unsafe_allow_html=True)
     
-    col1, col2 = st.columns(2)
+    if 'validation_results' not in st.session_state or not st.session_state.validation_results:
+        st.warning("◬ Please run validation first to generate engineer communications.")
+        return
+        
+    st.markdown('<div class="info-card">Review the grouped BoM issues below. Click the draft button to open your default email client (e.g., Outlook) with a pre-populated template outlining all required fixes for that specific engineer.</div>', unsafe_allow_html=True)
+    
+    results = st.session_state.validation_results
+    
+    # Group results by Engineer ID
+    from collections import defaultdict
+    issues_by_engineer = defaultdict(list)
+    for res in results:
+        issues_by_engineer[res.engineer_id].append(res)
+        
+    # Display unassigned items first if they exist
+    if 'Unassigned' in issues_by_engineer:
+        unassigned_count = len(issues_by_engineer['Unassigned'])
+        st.error(f"⚠ {unassigned_count} issue(s) do not have a D&R Engineer assigned in the BoM.")
+        with st.expander("View Unassigned Issues"):
+            st.dataframe(pd.DataFrame([r.to_dict() for r in issues_by_engineer['Unassigned']]))
+            
+    st.markdown("### Engineer Action Queues")
+    
+    for eng_id, issues in issues_by_engineer.items():
+        if eng_id == 'Unassigned': continue
+        
+        # Sort issues by severity inside the email
+        severity_order = {'CRITICAL': 1, 'ERROR': 2, 'WARNING': 3, 'INFO': 4}
+        issues.sort(key=lambda x: severity_order.get(x.severity, 5))
+        
+        with st.expander(f"👤 {eng_id} — {len(issues)} Required Action(s)"):
+            
+            # Construct Email Template Subject & Body
+            subject = f"ACTION REQUIRED: BoM Validation Issues Detected - Action needed for {len(issues)} Part(s)"
+            
+            body = f"Hello,\n\nThe automated Feature Validator has detected {len(issues)} issue(s) with the parts assigned to you in the latest Bill of Materials (BoM).\n\n"
+            body += "Please review and correct the following in the system:\n\n"
+            body += "="*60 + "\n\n"
+            
+            for i, issue in enumerate(issues, 1):
+                body += f"[{i}] Part Number: {issue.part_number} | Feature Code: {issue.feature_code}\n"
+                body += f"    Issue: {issue.issue_type} ({issue.severity})\n"
+                body += f"    Details: {issue.message}\n"
+                body += f"    Recommended Fix: {issue.recommendation}\n\n"
+                
+            body += "="*60 + "\n\n"
+            body += "Thank you,\nBoM Validation Team\n"
+            
+            # URL Encode for mailto protocol
+            mailto_link = f"mailto:{eng_id}?subject={urllib.parse.quote(subject)}&body={urllib.parse.quote(body)}"
+            
+            # Display summary table in UI
+            df_display = pd.DataFrame([r.to_dict() for r in issues])[['Severity', 'Issue Type', 'Part Number', 'Feature Code']]
+            st.dataframe(df_display, use_container_width=True, hide_index=True)
+            
+            # Render Email Button 
+            st.markdown(f'''
+                <a href="{mailto_link}" target="_blank" style="text-decoration: none;">
+                    <button style="
+                        background: linear-gradient(135deg, {Config.COLORS['primary']} 0%, {Config.COLORS['secondary']} 100%);
+                        color: white;
+                        border: none;
+                        padding: 10px 20px;
+                        border-radius: 6px;
+                        font-weight: bold;
+                        cursor: pointer;
+                        margin-top: 5px;
+                        margin-bottom: 10px;
+                        box-shadow: 0 4px 6px rgba(0,0,0,0.2);
+                    ">✉ Draft Email in Outlook</button>
+                </a>
+            ''', unsafe_allow_html=True)
+
+
+def page_dashboard():
+    st.markdown('<div class="main-title"><h1>⊞ Dashboard Home</h1></div>', unsafe_allow_html=True)
+    
+    col1, col2, col3 = st.columns(3)
     with col1:
         st.markdown("""
         <div class="info-card">
@@ -502,24 +601,31 @@ def page_dashboard():
             <p>Review the Action Center for step-by-step recommended fixes based on PDL rules.</p>
         </div>
         """, unsafe_allow_html=True)
+    with col3:
+        st.markdown("""
+        <div class="info-card">
+            <h3>Step 3: Communicate</h3>
+            <p>Generate automated emails to D&R Engineers with grouped correction tasks.</p>
+        </div>
+        """, unsafe_allow_html=True)
         
     if st.session_state.get('bom_df') is not None:
         st.markdown("### Current Workspace Status")
-        st.success(f"📄 BoM Loaded: {st.session_state.get('bom_filename')}")
+        st.success(f"⎗ BoM Loaded: {st.session_state.get('bom_filename')}")
         if st.session_state.get('pdl_df') is not None:
-            st.success(f"📄 PDL Loaded: {st.session_state.get('pdl_filename')}")
+            st.success(f"⎗ PDL Loaded: {st.session_state.get('pdl_filename')}")
         else:
-            st.warning("⚠️ PDL Guidance missing. Analytics will be limited.")
+            st.warning("◬ PDL Guidance missing. Analytics will be limited.")
             
-        if st.button("Go to Analytics ➡️", type="primary"):
-            st.info("Please use the Sidebar Navigation to switch to Analytics.")
+        if st.button("Go to Analytics ➔", type="primary"):
+            st.info("Please use the Sidebar Navigation to switch to Analytics or Auto Emails.")
 
 # ============================================================================
 # MAIN APPLICATION
 # ============================================================================
 
 def main():
-    st.set_page_config(page_title="Feature Code Validator | Ford OEM", page_icon="🔧", layout="wide", initial_sidebar_state="expanded")
+    st.set_page_config(page_title="Feature Code Validator | Ford OEM", page_icon="⎔", layout="wide", initial_sidebar_state="expanded")
     apply_custom_theme()
     
     if 'bom_df' not in st.session_state: st.session_state.bom_df = None
@@ -529,10 +635,11 @@ def main():
     st.sidebar.title("Feature Validator")
     st.sidebar.markdown("---")
     
-    page = st.sidebar.radio("📍 Navigation", ["Dashboard", "Upload & Validate", "Analytics"], index=0)
+    # Updated Navigation
+    page = st.sidebar.radio("⌖ Navigation", ["Dashboard", "Upload & Validate", "Analytics", "Auto Emails"], index=0)
     st.sidebar.markdown("---")
     
-    if st.sidebar.button("🗑️ Reset Workspace", use_container_width=True):
+    if st.sidebar.button("⌫ Reset Workspace", use_container_width=True):
         for key in ['bom_df', 'pdl_df', 'bom_filename', 'pdl_filename', 'validation_results', 'validation_stats', 'run_complete']:
             if key in st.session_state: del st.session_state[key]
         st.rerun()
@@ -542,6 +649,7 @@ def main():
     if page == "Dashboard": page_dashboard()
     elif page == "Upload & Validate": page_upload_validate()
     elif page == "Analytics": page_analytics()
+    elif page == "Auto Emails": page_auto_emails()
 
 if __name__ == "__main__":
     main()
