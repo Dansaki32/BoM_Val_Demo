@@ -70,30 +70,43 @@ def apply_custom_theme():
         <style>
         @import url('https://fonts.googleapis.com/css2?family=Inter:wght@300;400;600;800&family=JetBrains+Mono:wght@400;600&display=swap');
         
-        /* Global Reset */
-        html, body, .stApp {{ background-color: {c['main_bg']} !important; color: {c['text_main']} !important; font-family: 'Inter', sans-serif !important; }}
+        /* 1. GRADIENT MESH BACKGROUND */
+        /* This adds subtle glowing orbs in the corners for the glass to blur */
+        .stApp {{ 
+            background-color: {c['main_bg']} !important; 
+            background-image: 
+                radial-gradient(at 0% 0%, rgba(215, 23, 31, 0.12) 0px, transparent 50%),
+                radial-gradient(at 100% 100%, rgba(0, 112, 187, 0.08) 0px, transparent 50%) !important;
+            background-attachment: fixed;
+            color: {c['text_main']} !important; 
+            font-family: 'Inter', sans-serif !important; 
+        }}
+        
         h1, h2, h3, h4, h5, h6, p, li, label, td, th {{ font-family: 'Inter', sans-serif !important; color: {c['text_main']}; }}
         
         /* Typography Scale & Monospace */
         .mono {{ font-family: 'JetBrains Mono', monospace !important; color: #E0E2E4; }}
         h1 {{ font-weight: 800 !important; letter-spacing: -1px; }}
         
-        /* Glassmorphism Cards */
+        /* 2. THE GLASSMORPHISM CARD */
         .glass-card {{
-            background: {c['card_bg']} !important;
-            backdrop-filter: blur(16px) !important;
-            -webkit-backdrop-filter: blur(16px) !important;
-            border: 1px solid rgba(255, 255, 255, 0.05) !important;
-            box-shadow: 0 8px 32px rgba(0, 0, 0, 0.2) !important;
+            background: rgba(42, 43, 46, 0.3) !important; /* Highly transparent */
+            backdrop-filter: blur(20px) !important;       /* Heavy blur */
+            -webkit-backdrop-filter: blur(20px) !important;
+            border: 1px solid rgba(255, 255, 255, 0.08) !important; /* Frosty edge */
+            border-top: 1px solid rgba(255, 255, 255, 0.15) !important; /* Lighting from above */
+            box-shadow: 0 8px 32px rgba(0, 0, 0, 0.3) !important; /* Deep drop shadow */
             border-radius: 16px !important;
             padding: 1.5rem;
             transition: all 0.4s cubic-bezier(0.25, 1, 0.5, 1);
         }}
+        
+        /* 3. FLUID HOVER PHYSICS */
         .glass-card:hover {{
-            transform: translateY(-4px);
-            box-shadow: 0 12px 40px rgba(0, 0, 0, 0.4) !important;
-            border: 1px solid rgba(255, 255, 255, 0.1) !important;
-            background: rgba(54, 55, 56, 0.6) !important;
+            transform: translateY(-5px); /* Lifts up */
+            box-shadow: 0 15px 45px rgba(0, 0, 0, 0.5) !important; /* Shadow expands */
+            border: 1px solid rgba(255, 255, 255, 0.15) !important;
+            background: rgba(54, 55, 56, 0.4) !important; /* Gets slightly brighter */
         }}
 
         /* Advanced Metric Styling */
@@ -128,8 +141,12 @@ def apply_custom_theme():
             box-shadow: 0 8px 20px rgba(215, 23, 31, 0.5);
         }}
 
-        /* Sidebar */
-        section[data-testid="stSidebar"] {{ background-color: {c['sidebar_bg']} !important; border-right: 1px solid rgba(255,255,255,0.05); }}
+        /* Sidebar - Also made slightly transparent */
+        section[data-testid="stSidebar"] {{ 
+            background-color: rgba(18, 18, 19, 0.85) !important; 
+            backdrop-filter: blur(10px) !important;
+            border-right: 1px solid rgba(255,255,255,0.05); 
+        }}
         
         /* Pulse Animation for Loading */
         @keyframes pulse {{
@@ -141,6 +158,7 @@ def apply_custom_theme():
         </style>
     """)
     st.markdown(theme_css, unsafe_allow_html=True)
+
 
 def show_logo():
     if LOGO_PATH.exists():
